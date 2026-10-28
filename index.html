@@ -806,7 +806,7 @@ function criarProgresso(el, tituloBase = document.title) {
       dica: "" },
   };
   let modo = "etiquetas";
-  try { if (localStorage.getItem("autobatch.modo") === "express") modo = "express"; } catch (e) {}
+  // Ao abrir, começa sempre em Fotoprix + Dreambooks (pedido do utilizador); o Express escolhe-se à mão
   // Por agora o limite não se muda à mão: fica sempre o standard de cada modo (4500 / 2300).
   // Para voltar a deixar mudar: LIMITE_BLOQUEADO = false (volta a lembrar o último valor de cada modo).
   const LIMITE_BLOQUEADO = true;
@@ -826,7 +826,6 @@ function criarProgresso(el, tituloBase = document.title) {
     b.addEventListener("click", () => {
       if (ocupado || b.dataset.modo === modo) return;
       modo = b.dataset.modo;
-      try { localStorage.setItem("autobatch.modo", modo); } catch (e) {}
       pintarModo();
       lerLimite();
       // Resultados do outro modo deixam de valer
