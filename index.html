@@ -165,6 +165,9 @@
   .bloqueio-titulo { color: var(--erro); font-weight: 600; font-size: 16px; }
   .bloqueio p { margin: 6px 0 10px; }
   .bloqueio .ficheiros { max-height: 320px; overflow: auto; }
+  .aviso-faixa { padding: 14px 18px; border-color: var(--aviso); }
+  .aviso-titulo { color: var(--aviso); font-weight: 600; }
+  .aviso-faixa p { margin: 6px 0 0; }
   .botoes-origem { display: grid; gap: 8px; }
   .link {
     margin-top: 6px; margin-left: -6px; height: 30px; padding: 0 6px; border: 0; border-radius: 6px;
@@ -334,7 +337,7 @@
 
     <div class="rodape">
       <button class="btn-principal" id="btn-processar" type="button">Processar PDFs</button>
-      <div class="versao">Versão web 1.3</div>
+      <div class="versao">Versão web 1.3.1</div>
     </div>
     </div>
 
@@ -362,7 +365,7 @@
 
       <div class="rodape">
         <button class="btn-principal" id="btn-atualizar" type="button">Atualizar</button>
-        <div class="versao">Versão web 1.3 · F5 atualiza</div>
+        <div class="versao">Versão web 1.3.1 · F5 atualiza</div>
       </div>
     </div>
   </aside>
@@ -497,14 +500,39 @@ const Logica = (() => {
   const valorDaEtiqueta = ps => lerEtiqueta(ps).valor;
 
   // ------------------------------------------------ Tipo pelo número da encomenda
-  // O número da encomenda diz o tipo (indicado pelo utilizador): Express 6533570, Dreambooks 3477048,
-  // Fotoprix 10246510. Os tipos nunca se misturam num processo.
+  // O número da encomenda diz o tipo (indicado pelo utilizador). Em 2026-10 iam em Dreambooks 3 477 048,
+  // Express 6 533 570 e Fotoprix 10 246 510. Os tipos nunca se misturam num processo.
+  // Cada tipo tem uma faixa larga, e não um 1.º algarismo fixo: a regra não parte quando a numeração
+  // passar, por exemplo, de 3 999 999 para 4 000 000. A Dreambooks sobe uns 75 000 por ano.
+  // Quando um número passa do "aviso", a página avisa (sem bloquear) que a faixa está a acabar:
+  // é a altura de mudar aqui os limites. A mesma tabela está no main.py (TIPOS).
   const TIPOS = [
-    { id: "express",    nome: "Express",    re: /^6\d{6}$/ },
-    { id: "dreambooks", nome: "Dreambooks", re: /^3\d{6}$/ },
-    { id: "fotoprix",   nome: "Fotoprix",   re: /^1\d{7}$/ },
+    { id: "dreambooks", nome: "Dreambooks", min: 1_000_000,  max: 4_999_999,  aviso: 4_900_000 },
+    { id: "express",    nome: "Express",    min: 5_000_000,  max: 9_999_999,  aviso: 9_900_000 },
+    { id: "fotoprix",   nome: "Fotoprix",   min: 10_000_000, max: 99_999_999, aviso: 99_000_000 },
   ];
-  const tipoDaEncomenda = num => TIPOS.find(t => t.re.test(String(num).trim())) || null;
+  // Espaço que não quebra: o número não se parte no fim da linha
+  const milhares = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  const faixa = id => { const t = TIPOS.find(x => x.id === id); return `${milhares(t.min)} a ${milhares(t.max)}`; };
+  function tipoDaEncomenda(num) {
+    const s = String(num).trim();
+    if (!/^\d+$/.test(s)) return null;
+    const n = Number(s);
+    return TIPOS.find(t => n >= t.min && n <= t.max) || null;
+  }
+  // Texto do aviso de fim de faixa (ou "" se nenhum número lá chegou). numeros: [número, …]
+  function avisoFaixa(numeros) {
+    const perto = new Map();
+    for (const num of numeros) {
+      const t = tipoDaEncomenda(num);
+      if (t && Number(num) >= t.aviso) perto.set(t.id, Math.max(perto.get(t.id) ?? 0, Number(num)));
+    }
+    return [...perto].map(([id, n]) => {
+      const t = TIPOS.find(x => x.id === id);
+      return `Os números de encomenda ${t.nome} já vão em ${milhares(n)}, perto do fim da faixa que a app reconhece ` +
+        `(${faixa(id)}). Pede para ajustar a regra antes que passem de ${milhares(t.max)}: a partir daí estes PDFs são bloqueados.`;
+    }).join(" ");
+  }
 
   // ------------------------------------------------ Folhas Express Profissional
   // Uma página por folha: "Encomenda 6476322_1409550 - 2/3" no topo e a tabela Item | Produtos |
@@ -577,9 +605,10 @@ const Logica = (() => {
   // Cada entrada dos batches: [nome, valor] nas etiquetas; [idFolha, valor, { ficheiro }] no Express.
   // O array devolvido leva .tipo (nome do tipo encontrado) ou, quando os PDFs não são do modo escolhido,
   // .bloqueio = { texto, ficheiros } e nenhum batch. Regras (rigorosas, a pedido do utilizador):
-  //  - Express: todos os PDFs têm de ter folhas Express e todas as encomendas têm de ser Express (6xxxxxx);
-  //  - Fotoprix + Dreambooks: todos os PDFs com número no nome têm de ser Dreambooks (3xxxxxx) ou Fotoprix
-  //    (1xxxxxxx), sem misturar os dois; e pelo menos um tem de ter o número da etiqueta.
+  //  - Express: todos os PDFs têm de ter folhas Express e todas as encomendas têm de ser Express (faixa em TIPOS);
+  //  - Fotoprix + Dreambooks: todos os PDFs com número no nome têm de ser Dreambooks ou Fotoprix (faixas em
+  //    TIPOS), sem misturar os dois; e pelo menos um tem de ter o número da etiqueta.
+  // Com sucesso, .aviso traz o texto do aviso de fim de faixa (ou "").
   async function calcular(ficheiros, limite, progresso = () => {}, modo = "etiquetas") {
     const pdfs = ficheiros.filter(f => f.nome.toLowerCase().endsWith(".pdf"))
       .sort((a, b) => (a.nome < b.nome ? -1 : a.nome > b.nome ? 1 : 0));
@@ -608,7 +637,8 @@ const Logica = (() => {
         return bloquear("No modo Fotoprix + Dreambooks, cada encomenda é um PDF à parte cujo nome começa pelo número da encomenda (como na pasta das etiquetas). Nenhum destes PDFs é assim.", pdfs.map(p => p.nome));
       }
       if (desconhecidos.length) {
-        return bloquear(`${desconhecidos.length} PDF${desconhecidos.length === 1 ? " tem" : "s têm"} um número de encomenda que não é Dreambooks (3xxxxxx) nem Fotoprix (1xxxxxxx).`, desconhecidos);
+        return bloquear(`${desconhecidos.length} PDF${desconhecidos.length === 1 ? " tem" : "s têm"} um número de encomenda fora das faixas Dreambooks (${faixa("dreambooks")}) e Fotoprix (${faixa("fotoprix")}). ` +
+          `Se a numeração de um destes tipos mudou de faixa, é preciso ajustar a regra.`, desconhecidos);
       }
       if (porTipo.has("dreambooks") && porTipo.has("fotoprix")) {
         return bloquear("A pasta mistura encomendas Dreambooks e Fotoprix. Processa cada uma à parte.",
@@ -684,10 +714,11 @@ const Logica = (() => {
     }
     if (atual.length) batches.push(atual);
     batches.tipo = tipo;
+    batches.aviso = avisoFaixa(modo === "express" ? [...grupos.keys()] : comNumero.map(p => prefixo(p.nome)));
     return batches;
   }
 
-  return { calcular, extrairValor, lerFolhasExpress, folhaProfissional, tipoDaEncomenda, palavras, inteiro, inteiroDeFloat };
+  return { calcular, extrairValor, lerFolhasExpress, folhaProfissional, tipoDaEncomenda, avisoFaixa, palavras, inteiro, inteiroDeFloat };
 })();
 </script>
 
@@ -972,6 +1003,12 @@ function criarProgresso(el, tituloBase = document.title) {
         ? "Nenhuma folha Express encontrada. Confirma que escolheste o PDF certo e o modo Express."
         : "Nenhum PDF com número no nome. Escolhe outra pasta.";
       lista.append(vazio);
+    }
+    // Aviso de fim de faixa dos números de encomenda (não bloqueia)
+    if (batches.aviso) {
+      lista.append(el("section", { className: "card aviso-faixa" },
+        el("div", { className: "aviso-titulo", textContent: "Atenção: numeração perto do limite" }),
+        el("p", { textContent: batches.aviso })));
     }
     batches.forEach((b, i) => lista.append(cardBatch(i + 1, b, limite)));
   }
