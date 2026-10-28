@@ -1,7 +1,7 @@
 {
   "name": "Proc-Batches",
   "short_name": "Proc-Batches",
-  "description": "Agrupa os PDFs de etiquetas de uma pasta em batches até ao limite de quantidade.",
+  "description": "Agrupa os PDFs de etiquetas em batches até ao limite de quantidade e mostra o próximo número de batch a usar.",
   "lang": "pt-PT",
   "start_url": "./",
   "scope": "./",

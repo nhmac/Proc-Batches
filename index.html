@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Agrupa os PDFs de etiquetas de uma pasta em batches até ao limite de quantidade.">
+<meta name="description" content="Agrupa os PDFs de etiquetas em batches até ao limite de quantidade e mostra o próximo número de batch a usar.">
 <meta name="theme-color" content="#15171c">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icone.ico">
@@ -85,6 +85,7 @@
     background: var(--sub); border: 2px solid var(--borda); font-variant-numeric: tabular-nums;
   }
   #limite:focus { border-color: var(--accent); outline: none; }
+  #limite:disabled { color: var(--texto-sec); cursor: not-allowed; }
   .privado { margin-top: 20px; font-size: 12.5px; color: var(--texto-sec); display: flex; gap: 8px; }
   .privado svg { flex: none; margin-top: 2px; }
   .rodape { margin-top: auto; display: grid; gap: 12px; }
@@ -100,6 +101,7 @@
   main { padding: 24px 28px 16px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
   .cabecalho { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .cabecalho h2 { margin: 0; font-size: 24px; font-weight: 600; }
+  .titulo-modo { color: var(--texto-sec); font-weight: 400; }
   #estado { color: var(--texto-sec); text-align: right; }
   #estado[data-tipo="ativo"] { color: var(--accent-texto); }
   #estado[data-tipo="ok"] { color: var(--sucesso); }
@@ -151,6 +153,19 @@
   .ocupacao .barra { flex: 1; }
   .ocupacao em { font-style: normal; font-weight: 600; font-size: 13px; width: 48px; text-align: right; color: var(--cor); font-variant-numeric: tabular-nums; }
   .intervalo { margin-top: 6px; color: var(--texto-sec); font-size: 13px; overflow-wrap: anywhere; }
+  .modos { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--sub); border-radius: 8px; }
+  .modos button {
+    min-height: 34px; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; cursor: pointer;
+    color: var(--texto-sec); font-weight: 600; font-size: 13px; line-height: 1.25; transition: background .15s, color .15s;
+  }
+  .modos button:hover:not(:disabled) { color: var(--texto); }
+  .modos button[aria-checked="true"] { background: var(--card); color: var(--texto); box-shadow: 0 0 0 1px var(--borda); }
+  .modos button:disabled { cursor: default; opacity: .55; }
+  .bloqueio { padding: 16px 18px; border-color: var(--erro); }
+  .bloqueio-titulo { color: var(--erro); font-weight: 600; font-size: 16px; }
+  .bloqueio p { margin: 6px 0 10px; }
+  .bloqueio .ficheiros { max-height: 320px; overflow: auto; }
+  .botoes-origem { display: grid; gap: 8px; }
   .link {
     margin-top: 6px; margin-left: -6px; height: 30px; padding: 0 6px; border: 0; border-radius: 6px;
     background: transparent; color: var(--accent-texto); font-size: 13px; cursor: pointer;
@@ -184,20 +199,127 @@
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
+<style id="numeracao-css">
+  /* ------------------------------------------- Modos: Agrupar / Numeração */
+  .vistas {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 20px; padding: 4px;
+    background: var(--sub); border-radius: 8px;
+  }
+  .vistas button {
+    height: 32px; border: 0; border-radius: 6px; background: transparent; cursor: pointer;
+    color: var(--texto-sec); font-weight: 600; font-size: 13px; transition: background .15s, color .15s;
+  }
+  .vistas button:hover { color: var(--texto); }
+  .vistas button[aria-selected="true"] { background: var(--card); color: var(--texto); box-shadow: 0 0 0 1px var(--borda); }
+  .vistas button:disabled { height: auto; min-height: 32px; padding: 4px 6px; line-height: 1.2; font-size: 12px; cursor: not-allowed; opacity: .55; }
+  .vistas button:disabled:hover { color: var(--texto-sec); }
+  .vista-side { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .vista-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+  /* --------------------------------------------------- Numeração: sidebar */
+  .chip .estado-acesso { color: var(--texto-sec); font-size: 13px; }
+  .chip .estado-acesso[data-tipo="aviso"] { color: var(--aviso); }
+  .dica { margin-top: 8px; font-size: 12.5px; color: var(--texto-sec); }
+  .categorias { display: grid; gap: 6px; }
+  .categoria {
+    display: flex; align-items: center; gap: 10px; width: 100%; height: 40px; padding: 0 12px;
+    border-radius: 6px; cursor: pointer; text-align: left;
+    background: transparent; border: 1px solid transparent; color: var(--texto-sec); transition: background .15s;
+  }
+  .categoria:hover { background: var(--card); color: var(--texto); }
+  .categoria[aria-pressed="true"] { background: var(--card); border-color: var(--borda); color: var(--texto); font-weight: 600; }
+  .categoria i { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--cor); border: 2px solid var(--cor); }
+  .categoria.sem-pasta i { background: transparent; } /* pasta ainda não ligada: bolinha vazia */
+  .dica:empty { display: none; }
+  .categoria kbd { margin-left: auto; font: 12px var(--mono); color: var(--texto-sec); opacity: .7; }
+  .opcao { display: flex; align-items: center; gap: 10px; margin-top: 16px; font-size: 13px; color: var(--texto-sec); cursor: pointer; }
+  .opcao input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+
+  /* ------------------------------------------- Numeração: área principal */
+  .titulo-cat { display: flex; align-items: center; gap: 12px; }
+  .titulo-cat i { width: 12px; height: 12px; border-radius: 50%; background: var(--cor-cat); }
+  #frescura { color: var(--texto-sec); text-align: right; }
+  #frescura[data-tipo="aviso"] { color: var(--aviso); }
+  #frescura[data-tipo="erro"] { color: var(--erro); }
+
+  .hero { padding: 18px 22px 16px; border-left: 4px solid var(--cor-cat); }
+  .hero-legenda { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--texto-sec); }
+  .hero-legenda[data-copiado] { color: var(--sucesso-texto); }
+  #proximo {
+    display: inline-flex; align-items: center; gap: 14px; margin: 2px 0 2px -8px; padding: 0 8px;
+    border: 0; border-radius: 8px; background: transparent; cursor: pointer;
+    font-size: 56px; font-weight: 600; line-height: 1.2; letter-spacing: -0.01em;
+    color: var(--cor-cat); font-variant-numeric: tabular-nums; transition: background .15s;
+  }
+  #proximo:hover:not(:disabled) { background: var(--card-hover); }
+  #proximo:disabled { cursor: default; color: var(--texto-sec); }
+  #proximo svg { opacity: 0; transition: opacity .15s; color: var(--texto-sec); }
+  #proximo:hover:not(:disabled) svg, #proximo:focus-visible svg { opacity: 1; }
+  #ultimo { color: var(--texto-sec); font-size: 13.5px; }
+  #ultimo[data-tipo="aviso"] { color: var(--aviso); }
+
+  .dias { display: flex; flex-direction: column; min-height: 0; }
+  .dias-tabs { display: flex; gap: 4px; padding: 6px 6px 0; border-bottom: 1px solid var(--borda); }
+  .dias-tabs button {
+    height: 38px; padding: 0 14px; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+    background: transparent; cursor: pointer; color: var(--texto-sec); font-weight: 600; font-size: 13.5px;
+  }
+  .dias-tabs button:hover { color: var(--texto); }
+  .dias-tabs button[aria-selected="true"] { color: var(--texto); border-bottom-color: var(--cor-cat); }
+  .dias-tabs button span { margin-left: 6px; color: var(--texto-sec); font-weight: 400; font-variant-numeric: tabular-nums; }
+  .dias-painel { padding: 14px 16px 16px; }
+  .dias-data { color: var(--texto-sec); font-size: 13px; margin-bottom: 8px; }
+  #dia-outro {
+    height: 36px; min-width: 260px; margin-bottom: 10px; padding: 0 10px; border-radius: 6px;
+    background: var(--sub); border: 1px solid var(--borda); color: var(--texto); font: inherit; cursor: pointer;
+  }
+  .tipologias { display: grid; }
+  .tipologias div {
+    display: grid; grid-template-columns: minmax(140px, 220px) minmax(0, 1fr); gap: 16px;
+    padding: 7px 10px; border-radius: 4px;
+  }
+  .tipologias div:nth-child(even) { background: var(--linha-alt); }
+  .tipologias span:first-child { font-weight: 600; }
+  .tipologias span:last-child { font: 13.5px/21px var(--mono); color: var(--texto-sec); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .dias-vazio { padding: 28px 10px; color: var(--texto-sec); font-style: italic; }
+
+  @media (max-width: 760px) {
+    #proximo { font-size: 44px; }
+    .tipologias div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    #dia-outro { min-width: 0; width: 100%; }
+  }
+</style>
 </head>
 <body>
 
 <div class="app">
   <aside class="sidebar">
     <h1>Proc-Batches</h1>
-    <div class="subtitulo">Batches por limite de quantidade | Apenas DBC e FOTOPRIX</div>
+    <div class="subtitulo">Batches por limite de quantidade | DBC, FOTOPRIX e EXPRESS</div>
 
-    <div class="secao">Pasta</div>
+    <div class="vistas" role="tablist" aria-label="Modo">
+      <button type="button" role="tab" id="tab-agrupar" aria-selected="true" aria-controls="main-agrupar">Agrupar</button>
+      <button type="button" role="tab" id="tab-numeracao" aria-selected="false" aria-controls="main-numeracao" disabled title="Em desenvolvimento">Numeração - em desenvolvimento</button>
+    </div>
+
+    <div class="vista-side" id="side-agrupar">
+    <div class="secao">Tipo de encomendas</div>
+    <div class="modos" id="modos" role="radiogroup" aria-label="Tipo de encomendas">
+      <button type="button" role="radio" data-modo="etiquetas" aria-checked="true">Fotoprix + Dreambooks</button>
+      <button type="button" role="radio" data-modo="express" aria-checked="false">Express</button>
+    </div>
+    <div class="dica" id="dica-modo"></div>
+
+    <div class="secao">Pasta ou PDF</div>
     <div class="grupo">
-      <button class="btn" id="btn-pasta" type="button">Escolher pasta…</button>
+      <div class="botoes-origem">
+        <button class="btn" id="btn-pasta" type="button">Escolher pasta…</button>
+        <button class="btn" id="btn-pdf" type="button" title="Um PDF com várias encomendas (ex.: Express Profissional)">Escolher PDF…</button>
+      </div>
       <input id="input-pasta" type="file" webkitdirectory multiple hidden>
+      <input id="input-pdf" type="file" accept="application/pdf,.pdf" multiple hidden>
       <div class="chip" id="chip">
-        <div class="nome" id="nome-pasta">Nenhuma pasta selecionada</div>
+        <div class="nome" id="nome-pasta">Nenhuma pasta ou PDF selecionado</div>
         <div class="contagem" id="n-pdfs" hidden></div>
       </div>
     </div>
@@ -212,13 +334,43 @@
 
     <div class="rodape">
       <button class="btn-principal" id="btn-processar" type="button">Processar PDFs</button>
-      <div class="versao">Versão web 1.1</div>
+      <div class="versao">Versão web 1.3</div>
+    </div>
+    </div>
+
+    <div class="vista-side" id="side-numeracao" hidden>
+      <div class="secao">Categoria</div>
+      <div class="categorias" id="categorias"></div>
+
+      <div class="secao">Pasta da categoria</div>
+      <div class="grupo">
+        <button class="btn" id="btn-pasta-cat" type="button">Ligar pasta…</button>
+        <input id="input-pasta-cat" type="file" webkitdirectory multiple hidden>
+        <div class="chip" id="chip-pasta-cat">
+          <div class="nome" id="nome-pasta-cat">Nenhuma pasta ligada</div>
+          <div class="estado-acesso" id="acesso-pasta-cat" hidden></div>
+        </div>
+        <div class="dica" id="dica-pasta-cat"></div>
+      </div>
+
+      <label class="opcao"><input type="checkbox" id="auto"> Atualizar sozinho a cada 5 min</label>
+
+      <div class="privado">
+        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" d="M4 7V5a4 4 0 0 1 8 0v2M3 7h10v7H3z"/></svg>
+        <span>Só são lidos nomes e datas dos ficheiros. Nada é enviado.</span>
+      </div>
+
+      <div class="rodape">
+        <button class="btn-principal" id="btn-atualizar" type="button">Atualizar</button>
+        <div class="versao">Versão web 1.3 · F5 atualiza</div>
+      </div>
     </div>
   </aside>
 
   <main>
+    <div class="vista-main" id="main-agrupar" role="tabpanel" aria-labelledby="tab-agrupar">
     <div class="cabecalho">
-      <h2>Batches</h2>
+      <h2>Batches <span id="titulo-modo" class="titulo-modo"></span></h2>
       <div id="estado" role="status">Pronto para iniciar</div>
     </div>
     <div class="progresso" id="progresso" role="progressbar" aria-label="Progresso" aria-valuemin="0" aria-valuemax="100" hidden>
@@ -227,15 +379,50 @@
     </div>
 
     <div class="stats" id="stats">
-      <div class="card stat"><b id="stat-pdfs">0</b><span>PDFs lidos</span></div>
+      <div class="card stat"><b id="stat-pdfs">0</b><span id="stat-pdfs-legenda">PDFs lidos</span></div>
       <div class="card stat"><b id="stat-batches">0</b><span>Batches</span></div>
       <div class="card stat"><b id="stat-total">0</b><span>Total geral</span></div>
     </div>
 
     <div id="lista"></div>
+    </div>
+
+    <div class="vista-main" id="main-numeracao" role="tabpanel" aria-labelledby="tab-numeracao" hidden>
+      <div class="cabecalho">
+        <h2 class="titulo-cat"><i aria-hidden="true"></i><span id="titulo-cat">Batches Express</span></h2>
+        <div id="frescura" role="status"></div>
+      </div>
+      <div class="progresso" id="progresso-num" role="progressbar" aria-label="Progresso da leitura" aria-valuemin="0" aria-valuemax="100" hidden>
+        <div class="barra"><i></i></div>
+        <div class="progresso-legenda"><span class="progresso-detalhe"></span><span class="progresso-valor"></span></div>
+      </div>
+
+      <section class="card hero" aria-labelledby="hero-legenda">
+        <div class="hero-legenda" id="hero-legenda">Próximo número a usar</div>
+        <button type="button" id="proximo" disabled title="Clica para copiar o número">
+          <span id="proximo-num">----</span>
+          <svg width="22" height="22" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.3" d="M5.5 5.5V3a1 1 0 0 1 1-1H13a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1h-2.5M3 5.5h6.5a1 1 0 0 1 1 1V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6.5a1 1 0 0 1 1-1z"/></svg>
+        </button>
+        <div id="ultimo"></div>
+      </section>
+
+      <section class="card dias">
+        <div class="dias-tabs" role="tablist" aria-label="Dia">
+          <button type="button" role="tab" id="dia-tab-hoje" aria-selected="true" data-dia="hoje">Hoje<span></span></button>
+          <button type="button" role="tab" id="dia-tab-ontem" aria-selected="false" data-dia="ontem">Ontem<span></span></button>
+          <button type="button" role="tab" id="dia-tab-outros" aria-selected="false" data-dia="outros">Outros dias<span></span></button>
+        </div>
+        <div class="dias-painel" role="tabpanel">
+          <div class="dias-data" id="dias-data"></div>
+          <select id="dia-outro" aria-label="Consultar dia" hidden></select>
+          <div class="tipologias" id="tipologias"></div>
+          <div class="dias-vazio" id="dias-vazio">Ainda sem dados.</div>
+        </div>
+      </section>
+    </div>
   </main>
 </div>
-<div class="largar" id="largar" hidden>Larga a pasta com os PDFs</div>
+<div class="largar" id="largar" hidden>Larga a pasta ou os PDFs</div>
 
 <script src="vendor/pdfjs/pdf.min.js"></script>
 
@@ -296,45 +483,190 @@ const Logica = (() => {
     return lista;
   }
 
-  async function extrairValor(dados) {
+  // Etiqueta: o número que está na AREA_NUMERO da página (encontrado = havia lá alguma coisa)
+  function lerEtiqueta(ps) {
+    for (const p of ps) {
+      // Lógica de tolerância de coordenadas
+      if (AREA_NUMERO.x0 - TOLERANCIA <= p.x0 && p.x0 <= AREA_NUMERO.x1 + TOLERANCIA &&
+          AREA_NUMERO.top - TOLERANCIA <= p.top && p.top <= AREA_NUMERO.bottom + TOLERANCIA) {
+        return { encontrado: true, valor: inteiroDeFloat(p.text.replace(/,/g, ".")) ?? 0 };
+      }
+    }
+    return { encontrado: false, valor: 0 };
+  }
+  const valorDaEtiqueta = ps => lerEtiqueta(ps).valor;
+
+  // ------------------------------------------------ Tipo pelo número da encomenda
+  // O número da encomenda diz o tipo (indicado pelo utilizador): Express 6533570, Dreambooks 3477048,
+  // Fotoprix 10246510. Os tipos nunca se misturam num processo.
+  const TIPOS = [
+    { id: "express",    nome: "Express",    re: /^6\d{6}$/ },
+    { id: "dreambooks", nome: "Dreambooks", re: /^3\d{6}$/ },
+    { id: "fotoprix",   nome: "Fotoprix",   re: /^1\d{7}$/ },
+  ];
+  const tipoDaEncomenda = num => TIPOS.find(t => t.re.test(String(num).trim())) || null;
+
+  // ------------------------------------------------ Folhas Express Profissional
+  // Uma página por folha: "Encomenda 6476322_1409550 - 2/3" no topo e a tabela Item | Produtos |
+  // Acabamentos | Qtd. A quantidade da folha é a soma da coluna Qtd (pode ter vários artigos).
+  // Páginas de continuação não têm cabeçalho: só "6476322_1409550" no canto de cima e mais fotos.
+  const ID_FOLHA = /^\d+_\d+$/;
+  function folhaProfissional(ps) {
+    // "Encomenda" e o id podem vir como duas palavras ou colados numa só ("Encomenda10217361_264571"),
+    // conforme o espaço entre eles no PDF
+    const enc = ps.find(p => /^Encomenda(\d+_\d+)?$/.test(p.text) && p.x0 < 60);
+    const colado = enc && /^Encomenda(\d+_\d+)$/.exec(enc.text);
+    const id = colado ? { text: colado[1] }
+      : enc && ps.find(p => ID_FOLHA.test(p.text) && Math.abs(p.top - enc.top) < 4 && p.x0 > enc.x0 && p.x0 < enc.x1 + 30);
+    const qtdTitulo = ps.find(p => p.text === "Qtd");
+    if (!id) {
+      // Continuação: número da folha no canto de cima, sem cabeçalho de encomenda
+      const cont = ps.find(p => ID_FOLHA.test(p.text) && p.top < 40);
+      return cont ? { id: cont.text, continuacao: true, valor: qtdTitulo ? somaQtd(ps, qtdTitulo) : 0 } : null;
+    }
+    return { id: id.text, continuacao: false, valor: qtdTitulo ? somaQtd(ps, qtdTitulo) : 0 };
+  }
+  function somaQtd(ps, titulo) {
+    // A tabela acaba onde começam as fotos ("Ficheiros de: …")
+    const fim = Math.min(...ps.filter(p => p.text === "Ficheiros" && p.x0 < 60 && p.top > titulo.top).map(p => p.top), Infinity);
+    // Margem de 40 pt à esquerda do título: a coluna pode estar centrada (números de 4 dígitos começam antes)
+    return ps.filter(p => p.x0 >= titulo.x0 - 40 && p.top > titulo.top + 4 && p.top < fim && /^\d+$/.test(p.text))
+      .reduce((s, p) => s + Number(p.text), 0);
+  }
+
+  // Modo Express: lê todas as páginas do PDF (pode ter muitas encomendas). aoAvancar(fração)
+  async function lerFolhasExpress(dados, aoAvancar = () => {}) {
+    let pdf;
+    try {
+      pdf = await pdfjsLib.getDocument({ data: dados, isEvalSupported: false, disableFontFace: true, verbosity: 0 }).promise;
+      const folhas = [];
+      for (let n = 1; n <= pdf.numPages; n++) {
+        const pg = await pdf.getPage(n);
+        const f = folhaProfissional(palavras(await pg.getTextContent(), pg.view));
+        const ultima = folhas[folhas.length - 1];
+        if (f && !f.continuacao) folhas.push({ id: f.id, valor: f.valor, paginas: [n] });
+        else if (f && ultima && f.id === ultima.id) { ultima.paginas.push(n); ultima.valor += f.valor; } // continuação
+        aoAvancar(n / pdf.numPages);
+      }
+      return folhas;
+    } catch (e) {
+      return [];
+    } finally {
+      if (pdf) pdf.destroy();
+    }
+  }
+
+  // Modo Fotoprix + Dreambooks: a lógica de sempre (número na AREA_NUMERO da página 1)
+  async function extrairEtiqueta(dados) {
     let pdf;
     try {
       pdf = await pdfjsLib.getDocument({ data: dados, isEvalSupported: false, disableFontFace: true, verbosity: 0 }).promise;
       const pagina = await pdf.getPage(1);
-      const conteudo = await pagina.getTextContent();
-      for (const p of palavras(conteudo, pagina.view)) {
-        // Lógica de tolerância de coordenadas
-        if (AREA_NUMERO.x0 - TOLERANCIA <= p.x0 && p.x0 <= AREA_NUMERO.x1 + TOLERANCIA &&
-            AREA_NUMERO.top - TOLERANCIA <= p.top && p.top <= AREA_NUMERO.bottom + TOLERANCIA) {
-          return inteiroDeFloat(p.text.replace(/,/g, ".")) ?? 0;
-        }
-      }
+      return lerEtiqueta(palavras(await pagina.getTextContent(), pagina.view));
     } catch (e) {
-      return 0;
+      return { encontrado: false, valor: 0 };
     } finally {
       if (pdf) pdf.destroy();
     }
-    return 0;
+  }
+  async function extrairValor(dados) {
+    return (await extrairEtiqueta(dados)).valor;
   }
 
-  // ficheiros: [{nome, ler: () => Promise<ArrayBuffer>}]
-  async function calcular(ficheiros, limite, progresso = () => {}) {
+  // ficheiros: [{nome, ler: () => Promise<ArrayBuffer>}]; modo: "etiquetas" (Fotoprix + Dreambooks) ou "express"
+  // Cada entrada dos batches: [nome, valor] nas etiquetas; [idFolha, valor, { ficheiro }] no Express.
+  // O array devolvido leva .tipo (nome do tipo encontrado) ou, quando os PDFs não são do modo escolhido,
+  // .bloqueio = { texto, ficheiros } e nenhum batch. Regras (rigorosas, a pedido do utilizador):
+  //  - Express: todos os PDFs têm de ter folhas Express e todas as encomendas têm de ser Express (6xxxxxx);
+  //  - Fotoprix + Dreambooks: todos os PDFs com número no nome têm de ser Dreambooks (3xxxxxx) ou Fotoprix
+  //    (1xxxxxxx), sem misturar os dois; e pelo menos um tem de ter o número da etiqueta.
+  async function calcular(ficheiros, limite, progresso = () => {}, modo = "etiquetas") {
     const pdfs = ficheiros.filter(f => f.nome.toLowerCase().endsWith(".pdf"))
       .sort((a, b) => (a.nome < b.nome ? -1 : a.nome > b.nome ? 1 : 0));
+    const bloquear = (texto, ficheiros) => Object.assign([], { bloqueio: { texto, ficheiros } });
+    const prefixo = nome => nome.split("_")[0].trim();
+    const comNumero = pdfs.filter(p => inteiro(prefixo(p.nome)) !== null);
+
+    // Verificação pelo nome, antes de ler qualquer PDF
+    const porTipo = new Map(), desconhecidos = [];
+    for (const p of comNumero) {
+      const t = tipoDaEncomenda(prefixo(p.nome));
+      if (!t) { desconhecidos.push(p.nome); continue; }
+      if (!porTipo.has(t.id)) porTipo.set(t.id, []);
+      porTipo.get(t.id).push(p.nome);
+    }
+    const nomeTipo = id => TIPOS.find(t => t.id === id).nome;
+    const outros = [...porTipo].filter(([id]) => modo === "express" ? id !== "express" : id === "express");
+    if (outros.length) {
+      const lista = outros.flatMap(([id, ns]) => ns.map(n => `${n} (${nomeTipo(id)})`));
+      return bloquear(modo === "express"
+        ? `${lista.length} PDF${lista.length === 1 ? " é" : "s são"} de encomendas que não são Express. Muda para o modo Fotoprix + Dreambooks ou tira-os da pasta.`
+        : `${lista.length} PDF${lista.length === 1 ? " é" : "s são"} de encomendas Express. Muda para o modo Express ou tira-os da pasta.`, lista);
+    }
+    if (modo !== "express") {
+      if (pdfs.length && !comNumero.length) {
+        return bloquear("No modo Fotoprix + Dreambooks, cada encomenda é um PDF à parte cujo nome começa pelo número da encomenda (como na pasta das etiquetas). Nenhum destes PDFs é assim.", pdfs.map(p => p.nome));
+      }
+      if (desconhecidos.length) {
+        return bloquear(`${desconhecidos.length} PDF${desconhecidos.length === 1 ? " tem" : "s têm"} um número de encomenda que não é Dreambooks (3xxxxxx) nem Fotoprix (1xxxxxxx).`, desconhecidos);
+      }
+      if (porTipo.has("dreambooks") && porTipo.has("fotoprix")) {
+        return bloquear("A pasta mistura encomendas Dreambooks e Fotoprix. Processa cada uma à parte.",
+          [...porTipo.get("dreambooks").map(n => `${n} (Dreambooks)`), ...porTipo.get("fotoprix").map(n => `${n} (Fotoprix)`)]);
+      }
+    }
 
     // Agrupar por prefixo (id_grupo)
     const grupos = new Map();
+    const semFolhas = [];   // Express: PDFs sem folhas Express
+    const naoExpress = [];  // Express: folhas cuja encomenda não é Express
+    const semNumero = [];   // Etiquetas: PDFs sem número na AREA_NUMERO
+    let lidos = 0;
+    const juntar = (id, entrada) => {
+      if (!grupos.has(id)) grupos.set(id, []);
+      grupos.get(id).push(entrada);
+    };
     for (let i = 0; i < pdfs.length; i++) {
       // Antes de ler: diz qual é o PDF; depois: a barra avança
       progresso(i / pdfs.length, { atual: i + 1, total: pdfs.length, nome: pdfs[i].nome });
-      const id = inteiro(pdfs[i].nome.split("_")[0]);
-      if (id !== null) {
-        const valor = await extrairValor(await pdfs[i].ler());
-        if (!grupos.has(id)) grupos.set(id, []);
-        grupos.get(id).push([pdfs[i].nome, valor]);
+      if (modo === "express") {
+        const folhas = await lerFolhasExpress(await pdfs[i].ler(), x => progresso((i + x) / pdfs.length));
+        if (!folhas.length) semFolhas.push(pdfs[i].nome);
+        for (const fl of folhas) {
+          const enc = fl.id.split("_")[0];
+          if (tipoDaEncomenda(enc)?.id !== "express") {
+            naoExpress.push(`${pdfs[i].nome} · ${fl.id} (${tipoDaEncomenda(enc)?.nome ?? "tipo desconhecido"})`);
+            continue;
+          }
+          juntar(inteiro(enc), [fl.id, fl.valor, { ficheiro: pdfs[i].nome }]);
+        }
+      } else {
+        const id = inteiro(prefixo(pdfs[i].nome));
+        if (id !== null) {
+          const et = await extrairEtiqueta(await pdfs[i].ler());
+          lidos++;
+          if (!et.encontrado) semNumero.push(pdfs[i].nome);
+          juntar(id, [pdfs[i].nome, et.valor]);
+        }
       }
       progresso((i + 1) / pdfs.length);
     }
+
+    // Verificação pelo conteúdo
+    if (modo === "express" && (semFolhas.length || naoExpress.length)) {
+      const partes = [];
+      if (semFolhas.length) partes.push(`${semFolhas.length} PDF${semFolhas.length === 1 ? " não tem" : "s não têm"} folhas Express`);
+      if (naoExpress.length) partes.push(`${naoExpress.length} folha${naoExpress.length === 1 ? " é" : "s são"} de encomendas que não são Express`);
+      return bloquear(`${partes.join(" e ")}. Confirma o modo ou tira estes ficheiros da pasta.`,
+        [...semFolhas.map(n => `${n} (sem folhas Express)`), ...naoExpress]);
+    }
+    if (modo !== "express" && lidos && semNumero.length === lidos) {
+      return bloquear("Nenhum destes PDFs tem o número da etiqueta Fotoprix / Dreambooks. Confirma o modo.", semNumero);
+    }
+    const tipo = modo === "express" ? "Express" : porTipo.has("fotoprix") ? "Fotoprix" : porTipo.has("dreambooks") ? "Dreambooks" : "";
+
+    // Dentro de cada encomenda, por ordem de nome (como os ficheiros)
+    for (const itens of grupos.values()) itens.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
 
     // Criar batches
     const batches = [];
@@ -351,10 +683,11 @@ const Logica = (() => {
       soma += totalG;
     }
     if (atual.length) batches.push(atual);
+    batches.tipo = tipo;
     return batches;
   }
 
-  return { calcular, extrairValor, inteiro, inteiroDeFloat };
+  return { calcular, extrairValor, lerFolhasExpress, folhaProfissional, tipoDaEncomenda, palavras, inteiro, inteiroDeFloat };
 })();
 </script>
 
@@ -463,8 +796,47 @@ function criarProgresso(el, tituloBase = document.title) {
   let ficheiros = [];   // [{nome, ler}]
   let ocupado = false;
 
-  // Limite lembrado neste browser (só conveniência)
-  try { const g = localStorage.getItem("autobatch.limite"); if (g) $("limite").value = g; } catch (e) {}
+  // Modo: "etiquetas" (Fotoprix + Dreambooks, a lógica de sempre) ou "express" (folhas com coluna Qtd).
+  // Nunca se misturam: escolhe-se à mão antes de cada processo. Cada modo lembra o seu limite.
+  const MODOS = {
+    etiquetas: { titulo: "· Fotoprix + Dreambooks", chave: "autobatch.limite", padrao: "4500",
+      dica: "Uma pasta de etiquetas (um PDF por encomenda)." },
+    // Express: limite standard 2300 (pedido do utilizador). Chave nova para não herdar valores de testes
+    express: { titulo: "· Express", chave: "autobatch.limite.express.v2", padrao: "2300",
+      dica: "Um PDF com as folhas das encomendas (ou uma pasta com vários). A quantidade é a soma da coluna Qtd de cada folha." },
+  };
+  let modo = "etiquetas";
+  try { if (localStorage.getItem("autobatch.modo") === "express") modo = "express"; } catch (e) {}
+  // Por agora o limite não se muda à mão: fica sempre o standard de cada modo (4500 / 2300).
+  // Para voltar a deixar mudar: LIMITE_BLOQUEADO = false (volta a lembrar o último valor de cada modo).
+  const LIMITE_BLOQUEADO = true;
+  $("limite").disabled = LIMITE_BLOQUEADO;
+  if (LIMITE_BLOQUEADO) $("limite").title = "Limite standard deste modo (não editável por agora)";
+  function lerLimite() {
+    let g = null;
+    if (!LIMITE_BLOQUEADO) { try { g = localStorage.getItem(MODOS[modo].chave); } catch (e) {} }
+    $("limite").value = g || MODOS[modo].padrao;
+  }
+  function pintarModo() {
+    for (const b of $("modos").children) b.setAttribute("aria-checked", String(b.dataset.modo === modo));
+    $("titulo-modo").textContent = MODOS[modo].titulo;
+    $("dica-modo").textContent = MODOS[modo].dica;
+  }
+  for (const b of $("modos").children) {
+    b.addEventListener("click", () => {
+      if (ocupado || b.dataset.modo === modo) return;
+      modo = b.dataset.modo;
+      try { localStorage.setItem("autobatch.modo", modo); } catch (e) {}
+      pintarModo();
+      lerLimite();
+      // Resultados do outro modo deixam de valer
+      $("lista").replaceChildren();
+      $("stats").hidden = true;
+      estado("Pronto para iniciar");
+    });
+  }
+  pintarModo();
+  lerLimite();
 
   function estado(texto, tipo = "idle") {
     $("estado").textContent = texto;
@@ -492,16 +864,28 @@ function criarProgresso(el, tituloBase = document.title) {
     e.target.value = "";
   });
 
+  // Escolher um ou mais PDFs (ex.: um PDF com várias encomendas Express Profissional)
+  $("btn-pdf").addEventListener("click", () => $("input-pdf").click());
+  $("input-pdf").addEventListener("change", e => {
+    const lista = [...e.target.files];
+    if (!lista.length) return;
+    definirFicheiros(lista.map(f => ({ nome: f.name, ler: () => f.arrayBuffer() })),
+      lista.length === 1 ? lista[0].name : `${lista.length} ficheiros`);
+    e.target.value = "";
+  });
+
   // Arrastar uma pasta (ou PDFs soltos) para a janela
   let arrastos = 0;
-  addEventListener("dragenter", e => { if (ocupado) return; e.preventDefault(); arrastos++; $("largar").hidden = false; });
+  // No modo Numeração não se larga nada (o arrastar é só do Agrupar)
+  const noAgrupar = () => document.body.dataset.vista !== "numeracao";
+  addEventListener("dragenter", e => { if (ocupado || !noAgrupar()) return; e.preventDefault(); arrastos++; $("largar").hidden = false; });
   addEventListener("dragleave", () => { if (--arrastos <= 0) { arrastos = 0; $("largar").hidden = true; } });
   addEventListener("dragover", e => e.preventDefault());
   addEventListener("drop", async e => {
     e.preventDefault();
     arrastos = 0;
     $("largar").hidden = true;
-    if (ocupado) return;
+    if (ocupado || !noAgrupar()) return;
     const entradas = [...e.dataTransfer.items].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
     const pasta = entradas.length === 1 && entradas[0].isDirectory ? entradas[0] : null;
     let lista = [];
@@ -524,16 +908,18 @@ function criarProgresso(el, tituloBase = document.title) {
     $("btn-processar").disabled = sim;
     $("btn-processar").textContent = sim ? "A processar…" : "Processar PDFs";
     $("btn-pasta").disabled = sim;
+    $("btn-pdf").disabled = sim;
+    for (const b of $("modos").children) b.disabled = sim;
   }
 
   const barraProgresso = criarProgresso($("progresso"));
   const progresso = (x, d) => barraProgresso.atualizar(x, d && `${fmt(d.atual)} de ${fmt(d.total)} PDFs · ${d.nome}`);
 
   $("btn-processar").addEventListener("click", async () => {
-    if (!ficheiros.length) { estado("Escolhe uma pasta primeiro.", "erro"); return; }
+    if (!ficheiros.length) { estado("Escolhe uma pasta ou um PDF primeiro.", "erro"); return; }
     const limite = Logica.inteiro($("limite").value);
     if (limite === null) { estado("Limite inválido", "erro"); return; }
-    try { localStorage.setItem("autobatch.limite", $("limite").value.trim()); } catch (e) {}
+    if (!LIMITE_BLOQUEADO) { try { localStorage.setItem(MODOS[modo].chave, $("limite").value.trim()); } catch (e) {} }
     if (!window.pdfjsLib) { estado("Erro: o leitor de PDF não carregou. Recarrega a página.", "erro"); return; }
 
     $("lista").replaceChildren();
@@ -542,11 +928,17 @@ function criarProgresso(el, tituloBase = document.title) {
     barraProgresso.iniciar("A preparar…");
     estado("A ler os PDFs…", "ativo");
     try {
-      const batches = await Logica.calcular(ficheiros, limite, progresso);
+      const batches = await Logica.calcular(ficheiros, limite, progresso, modo);
+      if (batches.bloqueio) {
+        mostrarBloqueio(batches.bloqueio);
+        barraProgresso.concluir(false, "Bloqueado: os PDFs não correspondem ao modo escolhido");
+        estado("Bloqueado: nenhum batch foi criado.", "erro");
+        return;
+      }
       mostrarResultado(batches, limite);
       const n = batches.length;
       barraProgresso.concluir(true);
-      estado(`Concluído: ${n} batch${plural(n, "", "es")} criado${plural(n, "", "s")}.`, "ok");
+      estado(`Concluído: ${n} batch${plural(n, "", "es")}${batches.tipo ? " " + batches.tipo : ""} criado${plural(n, "", "s")}.`, "ok");
     } catch (e) {
       barraProgresso.concluir(false);
       estado(`Erro: ${e.message || e}`, "erro");
@@ -555,8 +947,20 @@ function criarProgresso(el, tituloBase = document.title) {
     }
   });
 
+  function mostrarBloqueio({ texto, ficheiros: lista }) {
+    const MAX = 200;
+    const itens = lista.slice(0, MAX).map(n => el("div", {}, el("span", { textContent: n })));
+    if (lista.length > MAX) itens.push(el("div", {}, el("span", { textContent: `… e mais ${lista.length - MAX}` })));
+    $("lista").replaceChildren(el("section", { className: "card bloqueio" },
+      el("div", { className: "bloqueio-titulo", textContent: "Processo bloqueado" }),
+      el("p", { textContent: texto }),
+      el("div", { className: "ficheiros" }, ...itens)));
+  }
+
   function mostrarResultado(batches, limite) {
     $("stat-pdfs").textContent = fmt(batches.reduce((s, b) => s + b.length, 0));
+    const comFolhas = batches.some(b => b.some(x => x[2]));
+    $("stat-pdfs-legenda").textContent = comFolhas ? "Folhas lidas" : "PDFs lidos";
     $("stat-batches").textContent = fmt(batches.length);
     $("stat-total").textContent = fmt(batches.reduce((s, b) => s + b.reduce((t, [, v]) => t + v, 0), 0));
     $("stats").hidden = false;
@@ -565,7 +969,9 @@ function criarProgresso(el, tituloBase = document.title) {
     if (!batches.length) {
       const vazio = document.createElement("div");
       vazio.className = "vazio";
-      vazio.textContent = "Nenhum PDF com número no nome. Escolhe outra pasta.";
+      vazio.textContent = modo === "express"
+        ? "Nenhuma folha Express encontrada. Confirma que escolheste o PDF certo e o modo Express."
+        : "Nenhum PDF com número no nome. Escolhe outra pasta.";
       lista.append(vazio);
     }
     batches.forEach((b, i) => lista.append(cardBatch(i + 1, b, limite)));
@@ -586,19 +992,23 @@ function criarProgresso(el, tituloBase = document.title) {
     barra.firstChild.style.width = `${Math.min(ocupacao, 1) * 100}%`;
     const n = dados.length;
     const intervalo = n === 1 ? dados[0][0] : `${dados[0][0]}  →  ${dados[n - 1][0]}`;
+    const folhas = dados.some(x => x[2]); // folhas profissionais (vêm de páginas de um PDF)
+    const unidade = folhas ? ["folha", "folhas"] : ["ficheiro", "ficheiros"];
 
     const detalhe = el("div", { className: "ficheiros", hidden: true });
-    const botao = el("button", { className: "link", type: "button", textContent: "▸  Ver ficheiros" });
+    const verTxt = folhas ? "Ver folhas" : "Ver ficheiros", ocultarTxt = folhas ? "Ocultar folhas" : "Ocultar ficheiros";
+    const botao = el("button", { className: "link", type: "button", textContent: `▸  ${verTxt}` });
     botao.setAttribute("aria-expanded", "false");
     botao.addEventListener("click", () => {
       if (!detalhe.childElementCount) {
         for (const [nome, valor] of dados) {
+          const rotulo = nome;
           detalhe.append(el("div", { className: valor > 1000 ? "destaque" : "" },
-            el("span", { textContent: nome }), el("span", { textContent: fmt(valor) })));
+            el("span", { textContent: rotulo }), el("span", { textContent: fmt(valor) })));
         }
       }
       detalhe.hidden = !detalhe.hidden;
-      botao.textContent = detalhe.hidden ? "▸  Ver ficheiros" : "▾  Ocultar ficheiros";
+      botao.textContent = detalhe.hidden ? `▸  ${verTxt}` : `▾  ${ocultarTxt}`;
       botao.setAttribute("aria-expanded", String(!detalhe.hidden));
     });
 
@@ -607,11 +1017,555 @@ function criarProgresso(el, tituloBase = document.title) {
         el("span", { className: "pill", textContent: `BATCH ${indice}` }),
         el("span", { className: "total" }, el("b", { textContent: fmt(total) }), el("span", { textContent: ` / ${fmt(limite)}` }))),
       el("div", { className: "ocupacao" }, barra, el("em", { textContent: `${Math.round(ocupacao * 100)}%` })),
-      el("div", { className: "intervalo", textContent: `${n} ficheiro${plural(n, "", "s")}  ·  ${intervalo}` }),
+      el("div", { className: "intervalo", textContent: `${n} ${plural(n, ...unidade)}  ·  ${intervalo}` }),
       botao, detalhe);
     card.style.setProperty("--cor", cor);
     return card;
   }
+})();
+</script>
+
+<script id="logica-numeracao">
+// Mesma lógica do dashboard_gui.ps1 (Batches Dashboard em PowerShell). Sem acesso ao DOM, para poder ser testada à parte.
+const Numeracao = (() => {
+  // Cores um pouco mais claras que as do PowerShell, para lerem bem no tema escuro
+  const CATEGORIAS = [
+    { id: "express",    nome: "Batches Express",    pasta: "BATCHES EXPRESS",    cor: "#d4a017" }, // amarelo torrado
+    { id: "fotoprix",   nome: "Batches Fotoprix",   pasta: "BATCHES FOTOPRIX",   cor: "#ef5350" },
+    { id: "dreambooks", nome: "Batches Dreambooks", pasta: "BATCHES DREAMBOOKS", cor: "#29b6f6" },
+  ];
+  const PADRAO = /(\d+)\.xml$/i;   // $FilePattern (o -match do PowerShell não distingue maiúsculas)
+  const DIAS_HISTORICO = 9;        // Hoje + Ontem + 7 dias em "Outros dias"
+
+  // Get-Tipologia: tipologia a partir do nome da pasta onde está o XML
+  function tipologia(pasta) {
+    const nome = pasta.replace(/^\d+x\d+_/i, "").replace(/^Batch_\d+_/i, "").replace(/^DPII_/i, "");
+    const m = /^(.+)_(\d+)$/.exec(nome);
+    return m ? `${m[1].replace(/_/g, " ")} ${m[2]}` : nome.replace(/_/g, " ");
+  }
+
+  function numeroDe(nome) {
+    const m = PADRAO.exec(nome);
+    return m ? Number(m[1]) : null;
+  }
+
+  // Início do dia de há n dias (n = 0 é hoje, n = -1 é amanhã)
+  function diasAtras(n, agora = Date.now()) {
+    const d = new Date(agora);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - n);
+    return d.getTime();
+  }
+
+  // Group-Object Tipologia | Sort-Object Name, com os números de cada tipologia por ordem
+  function porTipologia(itens) {
+    const grupos = new Map();
+    for (const it of itens) {
+      const chave = it.tipologia.toLocaleLowerCase("pt-PT");
+      if (!grupos.has(chave)) grupos.set(chave, { tipologia: it.tipologia, numeros: [] });
+      grupos.get(chave).numeros.push(it.numero);
+    }
+    return [...grupos.values()]
+      .map(g => ({ tipologia: g.tipologia, numeros: g.numeros.sort((a, b) => a - b) }))
+      .sort((a, b) => a.tipologia.localeCompare(b.tipologia, "pt-PT", { sensitivity: "base" }));
+  }
+
+  // itens: [{numero, tipologia, t}] (t = data de modificação em ms, ou null se não foi lida)
+  function resumir(itens, agora = Date.now()) {
+    if (!itens.length) return null;
+    let ultimo = itens[0];
+    for (const it of itens) if (it.numero > ultimo.numero) ultimo = it;
+    const doDia = n => {
+      const d0 = diasAtras(n, agora), d1 = diasAtras(n - 1, agora);
+      return itens.filter(it => it.t != null && it.t >= d0 && it.t < d1);
+    };
+    const outros = [];
+    for (let n = 2; n <= DIAS_HISTORICO - 1; n++) {
+      const lista = doDia(n);
+      if (lista.length) outros.push({ dia: diasAtras(n, agora), itens: lista });
+    }
+    return { ultimo: ultimo.numero, ultimoItem: ultimo, proximo: ultimo.numero + 1, hoje: doDia(0), ontem: doDia(1), outros };
+  }
+
+  // Percorre a pasta e as subpastas (Get-ChildItem -Recurse), várias pastas de cada vez:
+  // na rede, o que pesa é a espera por cada pasta, não o trabalho
+  async function percorrer(raiz, aoFicheiro, aoPasta = () => {}, emParalelo = 12) {
+    const fila = [raiz];
+    let ativos = 0;
+    await new Promise(fim => {
+      const seguinte = () => {
+        if (!fila.length && !ativos) return fim();
+        while (ativos < emParalelo && fila.length) {
+          const pasta = fila.shift();
+          ativos++;
+          (async () => {
+            for await (const h of pasta.values()) {
+              if (h.kind === "directory") fila.push(h); else aoFicheiro(h, pasta);
+            }
+          })()
+            .catch(() => {}) // pasta sem acesso: ignora, como o -ErrorAction SilentlyContinue
+            .then(() => { ativos--; aoPasta(); seguinte(); });
+        }
+      };
+      seguinte();
+    });
+  }
+
+  // Datas: só interessam as dos últimos DIAS_HISTORICO dias. Os números sobem com o tempo, por isso
+  // lê-se do maior para o mais pequeno e pára-se depois de MARGEM ficheiros seguidos mais antigos
+  // (a margem cobre batches gravados fora de ordem). Poupa abrir milhares de ficheiros do arquivo.
+  const MARGEM = 60, EM_PARALELO = 16;
+  async function lerDatas(itens, agora = Date.now()) {
+    const corte = diasAtras(DIAS_HISTORICO - 1, agora);
+    const ordem = [...itens].sort((a, b) => b.numero - a.numero);
+    let seguidos = 0;
+    for (let i = 0; i < ordem.length && seguidos < MARGEM; i += EM_PARALELO) {
+      const lote = ordem.slice(i, i + EM_PARALELO);
+      const datas = await Promise.all(lote.map(it => it.lerData().catch(() => null)));
+      lote.forEach((it, k) => {
+        it.t = datas[k];
+        if (datas[k] != null && datas[k] >= corte) seguidos = 0; else seguidos++;
+      });
+    }
+  }
+
+  // Ficheiros de um <input webkitdirectory>: separa por categoria pelo caminho
+  // (sem categoria no caminho, ficam na categoria escolhida)
+  function deFicheiros(ficheiros, catPorOmissao) {
+    const porCat = new Map();
+    for (const f of ficheiros) {
+      const numero = numeroDe(f.name);
+      if (numero === null) continue;
+      const partes = (f.webkitRelativePath || f.name).split("/");
+      const pastas = partes.slice(0, -1);
+      const cat = CATEGORIAS.find(c => pastas.some(p => p.toUpperCase() === c.pasta)) ?? catPorOmissao;
+      if (!porCat.has(cat.id)) porCat.set(cat.id, []);
+      porCat.get(cat.id).push({ numero, tipologia: tipologia(pastas[pastas.length - 1] ?? ""), t: f.lastModified });
+    }
+    return porCat;
+  }
+
+  return { CATEGORIAS, DIAS_HISTORICO, tipologia, numeroDe, diasAtras, porTipologia, resumir, percorrer, lerDatas, deFicheiros };
+})();
+</script>
+
+<script id="numeracao">
+(() => {
+  const $ = id => document.getElementById(id);
+  const C = Numeracao;
+  const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  const plural = (n, s, p) => (n === 1 ? s : p);
+  const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const lerGuardado = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const CINCO_MIN = 5 * 60 * 1000;
+
+  function el(tag, props = {}, ...filhos) {
+    const e = Object.assign(document.createElement(tag), props);
+    e.append(...filhos);
+    return e;
+  }
+
+  // ---------------------------------------------------------------- Modos
+  let entrouNaNumeracao = () => {};
+  // Modo Numeração desligado por agora (em desenvolvimento): o código fica todo, só não se entra.
+  // Para voltar a ligar: NUMERACAO_ATIVA = true e tirar o disabled/texto do botão #tab-numeracao.
+  const NUMERACAO_ATIVA = false;
+  function mudarVista(v) {
+    if (!NUMERACAO_ATIVA) v = "agrupar";
+    const num = v === "numeracao";
+    document.body.dataset.vista = num ? "numeracao" : "agrupar";
+    $("tab-agrupar").setAttribute("aria-selected", String(!num));
+    $("tab-numeracao").setAttribute("aria-selected", String(num));
+    $("side-agrupar").hidden = num;
+    $("main-agrupar").hidden = num;
+    $("side-numeracao").hidden = !num;
+    $("main-numeracao").hidden = !num;
+    guardar("procbatches.vista", document.body.dataset.vista);
+    if (num) entrouNaNumeracao();
+  }
+  $("tab-agrupar").addEventListener("click", () => mudarVista("agrupar"));
+  $("tab-numeracao").addEventListener("click", () => mudarVista("numeracao"));
+  mudarVista(lerGuardado("procbatches.vista") === "numeracao" ? "numeracao" : "agrupar");
+
+  // ------------------------------------- Acesso guardado à pasta (IndexedDB)
+  const BD = (() => {
+    let aberta;
+    const abrir = () => aberta ??= new Promise((ok, erro) => {
+      const r = indexedDB.open("proc-batches", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("kv");
+      r.onsuccess = () => ok(r.result);
+      r.onerror = () => erro(r.error);
+    });
+    const pedido = (modo, f) => abrir().then(db => new Promise((ok, erro) => {
+      const r = f(db.transaction("kv", modo).objectStore("kv"));
+      r.onsuccess = () => ok(r.result);
+      r.onerror = () => erro(r.error);
+    }));
+    return { get: k => pedido("readonly", s => s.get(k)), set: (k, v) => pedido("readwrite", s => s.put(v, k)) };
+  })();
+
+  // ---------------------------------------------------------------- Estado
+  // Uma pasta por categoria (BATCHES EXPRESS, BATCHES FOTOPRIX, BATCHES DREAMBOOKS):
+  // a app só tem acesso a essas três, nunca à MULTICUT nem ao resto da rede
+  const pastas = new Map();                  // id da categoria -> FileSystemDirectoryHandle
+  // Dentro de uma página de outro endereço (ex.: uma pré-visualização), o browser não deixa escolher pastas
+  const emMolduraExterna = (() => { try { return window.top !== window && !window.top.location.href; } catch (e) { return true; } })();
+  let modoFicheiros = !("showDirectoryPicker" in window) || emMolduraExterna; // sem acesso guardado: escolhe-se a pasta a cada vez
+  // Porque é que não há acesso guardado (aparece na barra lateral, para se perceber a causa)
+  let motivo = !modoFicheiros ? ""
+    : emMolduraExterna ? "a app está aberta dentro de outra janela (por exemplo, uma pré-visualização). Abre-a diretamente no Chrome ou no Edge"
+    : !window.isSecureContext ? `página aberta num endereço não seguro: ${location.protocol}//${location.host}`
+    : "o browser não tem esta função (usa o Chrome ou o Edge)";
+  let catAtual = C.CATEGORIAS.find(c => c.id === lerGuardado("procbatches.categoria")) ?? C.CATEGORIAS[0];
+  let diaSel = "hoje";
+  let aLer = false;
+  let avisoPasta = null;                     // { cat, texto }: escolheu uma pasta errada
+  const dados = new Map();                   // id da categoria -> { itens, quando } ou { erro, quando }
+  const barra = criarProgresso($("progresso-num"));
+
+  // ------------------------------------------------------------ Categorias
+  C.CATEGORIAS.forEach((c, i) => {
+    const b = el("button", { type: "button", className: "categoria" },
+      el("i"), el("span", { textContent: c.nome }), el("kbd", { textContent: String(i + 1) }));
+    b.dataset.id = c.id;
+    b.style.setProperty("--cor", c.cor);
+    b.addEventListener("click", () => escolherCategoria(c));
+    $("categorias").append(b);
+  });
+
+  function pintarCategoria() {
+    $("main-numeracao").style.setProperty("--cor-cat", catAtual.cor);
+    $("titulo-cat").textContent = catAtual.nome;
+    for (const b of $("categorias").children) {
+      b.setAttribute("aria-pressed", String(b.dataset.id === catAtual.id));
+      b.classList.toggle("sem-pasta", !modoFicheiros && !pastas.has(b.dataset.id));
+      b.title = !modoFicheiros && !pastas.has(b.dataset.id) ? "Pasta ainda não ligada" : "";
+    }
+  }
+
+  function escolherCategoria(c) {
+    if (aLer) return;
+    catAtual = c;
+    guardar("procbatches.categoria", c.id);
+    pintarCategoria();
+    pintarPasta();
+    mostrar();
+    // como no PowerShell: mudar de categoria volta a ler (sem abrir a escolha de pasta sozinho)
+    if (!modoFicheiros && pastas.has(c.id)) atualizar(true);
+  }
+
+  // --------------------------------------------------------------- Pasta
+  const mesmaPasta = (nome, c) => nome.trim().toUpperCase() === c.pasta;
+
+  async function permissao(h, pedir) {
+    const o = { mode: "read" };
+    try {
+      if (await h.queryPermission(o) === "granted") return true;
+      return pedir && (await h.requestPermission(o)) === "granted";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function pintarPasta() {
+    const cat = catAtual, h = pastas.get(cat.id);
+    const acesso = $("acesso-pasta-cat");
+    const aviso = (texto, tipo = "") => { acesso.textContent = texto; acesso.dataset.tipo = tipo; acesso.hidden = !texto; };
+    $("auto").closest("label").hidden = modoFicheiros; // sem acesso guardado não dá para ler sozinho
+    $("nome-pasta-cat").textContent = cat.pasta;
+    $("chip-pasta-cat").classList.toggle("escolhida", modoFicheiros ? dados.has(cat.id) : !!h);
+    if (modoFicheiros) {
+      $("btn-pasta-cat").textContent = "Escolher pasta…";
+      $("dica-pasta-cat").textContent = `Escolhe a pasta ${cat.pasta} dentro de MULTICUT.`;
+      aviso(`Este browser não guarda o acesso: escolhe a pasta a cada atualização. Motivo: ${motivo}.`, "aviso");
+    } else {
+      $("btn-pasta-cat").textContent = h ? "Mudar pasta…" : "Ligar pasta…";
+      $("dica-pasta-cat").textContent = h ? "" : `Escolhe a pasta ${cat.pasta} dentro de MULTICUT. O acesso fica guardado neste browser só para essa pasta.`;
+      if (!h) aviso("Por ligar");
+      else {
+        const ok = await permissao(h, false);
+        if (cat !== catAtual) return; // mudou de categoria entretanto
+        if (ok) aviso("Acesso guardado neste browser");
+        else aviso("Falta permitir o acesso: carrega em Atualizar.", "aviso");
+      }
+    }
+    if (avisoPasta && avisoPasta.cat === cat.id) aviso(avisoPasta.texto, "aviso");
+  }
+
+  async function ligarPasta() {
+    if (modoFicheiros) { $("input-pasta-cat").click(); return; }
+    let h;
+    try {
+      h = await showDirectoryPicker({ id: "batches", mode: "read" });
+    } catch (e) {
+      if (e.name === "AbortError") return; // cancelou
+      // Bloqueado (política do browser, pasta protegida…): passa a escolher a pasta a cada atualização
+      modoFicheiros = true;
+      motivo = /cross.origin|sub.?frame/i.test(e.message)
+        ? "a app está aberta dentro de outra janela (por exemplo, uma pré-visualização). Abre-a diretamente no Chrome ou no Edge"
+        : e.name === "SecurityError" || e.name === "NotAllowedError"
+          ? `bloqueado pelo browser, possivelmente por uma política da empresa (${e.name}: ${e.message})`
+          : `${e.name}: ${e.message}`;
+      pintarCategoria();
+      await pintarPasta();
+      $("ultimo").textContent = "Este browser não deixa guardar o acesso à pasta. Carrega em “Escolher pasta…”.";
+      $("ultimo").dataset.tipo = "aviso";
+      return;
+    }
+    // Só aceita uma das três pastas; se for a de outra categoria, fica nessa categoria
+    const cat = C.CATEGORIAS.find(c => mesmaPasta(h.name, c));
+    if (!cat) {
+      avisoPasta = { cat: catAtual.id, texto: `Escolheste “${h.name}”. Tem de ser a pasta ${catAtual.pasta}: a app só deve ter acesso a essa pasta.` };
+      await pintarPasta();
+      return;
+    }
+    avisoPasta = null;
+    pastas.set(cat.id, h);
+    try { await BD.set(`pasta.${cat.id}`, h); } catch (e) {}
+    catAtual = cat;
+    guardar("procbatches.categoria", cat.id);
+    pintarCategoria();
+    await pintarPasta();
+    mostrar();
+    atualizar(true);
+  }
+
+  $("btn-pasta-cat").addEventListener("click", ligarPasta);
+
+  // Modo ficheiros: <input webkitdirectory>, também só com uma das três pastas
+  $("input-pasta-cat").addEventListener("change", e => {
+    const ficheiros = [...e.target.files];
+    e.target.value = "";
+    if (!ficheiros.length) return;
+    const topo = (ficheiros[0].webkitRelativePath || "").split("/")[0];
+    const cat = C.CATEGORIAS.find(c => mesmaPasta(topo, c));
+    if (!cat) {
+      avisoPasta = { cat: catAtual.id, texto: `Escolheste “${topo}”. Tem de ser a pasta ${catAtual.pasta}.` };
+      pintarPasta();
+      return;
+    }
+    avisoPasta = null;
+    catAtual = cat;
+    guardar("procbatches.categoria", cat.id);
+    dados.set(cat.id, { itens: C.deFicheiros(ficheiros, cat).get(cat.id) ?? [], quando: Date.now() });
+    pintarCategoria();
+    pintarPasta();
+    mostrar();
+  });
+
+  // ------------------------------------------------------------ Atualizar
+  function setOcupado(sim) {
+    aLer = sim;
+    $("btn-atualizar").disabled = sim;
+    $("btn-atualizar").textContent = sim ? "A ler…" : "Atualizar";
+    $("btn-pasta-cat").disabled = sim;
+    for (const b of $("categorias").children) b.disabled = sim;
+  }
+
+  // pedir = veio de um clique ou tecla: pode abrir a escolha de pasta ou o pedido de permissão
+  async function atualizar(pedir) {
+    if (aLer) return;
+    if (modoFicheiros) { if (pedir) $("input-pasta-cat").click(); return; }
+    const cat = catAtual, pasta = pastas.get(cat.id);
+    if (!pasta) { if (pedir) ligarPasta(); return; }
+    if (!(await permissao(pasta, pedir))) { await pintarPasta(); return; }
+    pintarPasta();
+
+    setOcupado(true);
+    barra.iniciar("A abrir a pasta…");
+    try {
+      try {
+        await pasta.keys().next(); // a pasta ainda existe? (foi apagada, renomeada ou a rede caiu)
+      } catch (e) {
+        dados.set(cat.id, { erro: "pasta", quando: Date.now() });
+        barra.concluir(false, `Não foi possível abrir ${cat.pasta}`);
+        return;
+      }
+      const itens = [];
+      let lidas = 0;
+      await C.percorrer(pasta,
+        (h, p) => {
+          const numero = C.numeroDe(h.name);
+          if (numero !== null) itens.push({ numero, tipologia: C.tipologia(p.name), t: null, lerData: () => h.getFile().then(f => f.lastModified) });
+        },
+        () => barra.fase(`A ler pastas · ${fmt(++lidas)} pastas · ${fmt(itens.length)} batches`));
+      barra.fase("A ler as datas dos últimos batches…");
+      const agora = Date.now();
+      await C.lerDatas(itens, agora);
+      dados.set(cat.id, { itens, quando: agora });
+      barra.concluir(true);
+    } catch (e) {
+      dados.set(cat.id, { erro: e.message || String(e), quando: Date.now() });
+      barra.concluir(false, `Erro: ${e.message || e}`);
+    } finally {
+      setOcupado(false);
+      if (cat === catAtual) mostrar();
+    }
+  }
+
+  $("btn-atualizar").addEventListener("click", () => atualizar(true));
+
+  // Ler sozinho (sem pedir nada): ao entrar no modo, ao voltar à janela e de 5 em 5 min se ligado
+  function talvezAtualizar() {
+    if (document.body.dataset.vista !== "numeracao" || document.hidden || aLer || modoFicheiros || !pastas.has(catAtual.id)) return;
+    const d = dados.get(catAtual.id);
+    if (!d || ($("auto").checked && Date.now() - d.quando >= CINCO_MIN)) atualizar(false);
+  }
+  $("auto").checked = lerGuardado("procbatches.auto") === "1";
+  $("auto").addEventListener("change", () => { guardar("procbatches.auto", $("auto").checked ? "1" : "0"); talvezAtualizar(); });
+  setInterval(talvezAtualizar, 30000);
+  document.addEventListener("visibilitychange", () => { pintarFrescura(); talvezAtualizar(); });
+
+  // --------------------------------------------------------------- Mostrar
+  const doisDig = n => String(n).padStart(2, "0");
+  const dataCurta = t => { const d = new Date(t); return `${doisDig(d.getDate())}/${doisDig(d.getMonth() + 1)}/${d.getFullYear()}`; };
+  const diaSemana = (t, tipo = "long") => new Date(t).toLocaleDateString("pt-PT", { weekday: tipo });
+  const hora = t => { const d = new Date(t); return `${doisDig(d.getHours())}:${doisDig(d.getMinutes())}`; };
+  function quando(t) {
+    if (t >= C.diasAtras(0)) return `hoje às ${hora(t)}`;
+    if (t >= C.diasAtras(1)) return `ontem às ${hora(t)}`;
+    return `${dataCurta(t)} às ${hora(t)}`;
+  }
+
+  function pintarFrescura() {
+    const f = $("frescura");
+    const d = dados.get(catAtual.id);
+    if (!d) { f.textContent = ""; f.dataset.tipo = ""; return; }
+    const min = Math.floor((Date.now() - d.quando) / 60000);
+    let texto = min < 1 ? "Atualizado agora mesmo" : min === 1 ? "Atualizado há 1 minuto" : `Atualizado há ${min} minutos`, tipo = "";
+    if (min >= 15) { texto += " · atualiza antes de usar o número"; tipo = "erro"; }
+    else if (min >= 5) { texto += " · considera atualizar"; tipo = "aviso"; }
+    f.textContent = texto;
+    f.dataset.tipo = tipo;
+  }
+  setInterval(pintarFrescura, 15000);
+
+  function hero(numero, texto, tipo = "") {
+    $("proximo-num").textContent = numero;
+    $("proximo").disabled = !/^\d+$/.test(numero);
+    $("ultimo").textContent = texto;
+    $("ultimo").dataset.tipo = tipo;
+  }
+
+  function preencher(itens, vazio) {
+    const grupos = C.porTipologia(itens);
+    $("tipologias").replaceChildren(...grupos.map(g =>
+      el("div", {}, el("span", { textContent: g.tipologia }), el("span", { textContent: g.numeros.join(", ") }))));
+    $("dias-vazio").textContent = vazio;
+    $("dias-vazio").hidden = grupos.length > 0;
+  }
+
+  let resumo = null;
+  function mostrar() {
+    pintarFrescura();
+    const d = dados.get(catAtual.id);
+    resumo = null;
+    if (!d) {
+      hero("----", modoFicheiros ? `Carrega em “Escolher pasta…” e escolhe a pasta ${catAtual.pasta}.`
+        : pastas.has(catAtual.id) ? "Carrega em Atualizar para ler os batches." : `Liga a pasta ${catAtual.pasta} para ver os números.`);
+    } else if (d.erro === "pasta") {
+      hero("--", `Não foi possível abrir a pasta ${catAtual.pasta}. Se mudou de sítio ou de nome, liga-a outra vez.`, "aviso");
+    } else if (d.erro) {
+      hero("--", `Não foi possível ler a pasta: ${d.erro}`, "aviso");
+    } else {
+      resumo = C.resumir(d.itens);
+      if (!resumo) hero("--", "Sem ficheiros de batch encontrados nesta categoria.", "aviso");
+      else {
+        const u = resumo.ultimoItem;
+        hero(String(resumo.proximo), `Último utilizado: ${resumo.ultimo}` + (u.t != null ? ` · ${u.tipologia}, ${quando(u.t)}` : ""));
+      }
+    }
+    pintarDias();
+  }
+
+  function pintarDias() {
+    const r = resumo;
+    const contar = n => (r && n ? String(n) : "");
+    const [tHoje, tOntem, tOutros] = ["dia-tab-hoje", "dia-tab-ontem", "dia-tab-outros"].map($);
+    tHoje.querySelector("span").textContent = contar(r?.hoje.length);
+    tOntem.querySelector("span").textContent = contar(r?.ontem.length);
+    tOutros.querySelector("span").textContent = contar(r?.outros.reduce((s, o) => s + o.itens.length, 0));
+    for (const t of [tHoje, tOntem, tOutros]) t.setAttribute("aria-selected", String(t.dataset.dia === diaSel));
+
+    const sel = $("dia-outro");
+    sel.hidden = true;
+    if (diaSel === "hoje") {
+      $("dias-data").textContent = `${diaSemana(C.diasAtras(0))}, ${dataCurta(C.diasAtras(0))}`;
+      preencher(r ? r.hoje : [], r ? "Ainda sem batches registados hoje." : "Ainda sem dados.");
+    } else if (diaSel === "ontem") {
+      $("dias-data").textContent = `${diaSemana(C.diasAtras(1))}, ${dataCurta(C.diasAtras(1))}`;
+      preencher(r ? r.ontem : [], r ? "Sem batches registados ontem." : "Ainda sem dados.");
+    } else {
+      $("dias-data").textContent = `Os ${C.DIAS_HISTORICO - 2} dias antes de ontem`;
+      const outros = r ? r.outros : [];
+      if (outros.length) {
+        const antes = Number(sel.value);
+        sel.replaceChildren(...outros.map(o => el("option", {
+          value: String(o.dia),
+          textContent: `${diaSemana(o.dia, "short")}, ${dataCurta(o.dia)} (${o.itens.length} batch${plural(o.itens.length, "", "es")})`,
+        })));
+        if (outros.some(o => o.dia === antes)) sel.value = String(antes);
+        sel.hidden = false;
+        preencher(outros.find(o => String(o.dia) === sel.value).itens, "");
+      } else {
+        preencher([], r ? "Sem batches nos dias anteriores." : "Ainda sem dados.");
+      }
+    }
+  }
+
+  for (const t of document.querySelectorAll(".dias-tabs button")) {
+    t.addEventListener("click", () => { diaSel = t.dataset.dia; pintarDias(); });
+  }
+  $("dia-outro").addEventListener("change", () => {
+    const o = resumo?.outros.find(x => String(x.dia) === $("dia-outro").value);
+    if (o) preencher(o.itens, "");
+  });
+
+  // ----------------------------------------------------- Copiar o número
+  let temporizadorCopia = 0;
+  $("proximo").addEventListener("click", async () => {
+    const texto = $("proximo-num").textContent;
+    if (!/^\d+$/.test(texto)) return;
+    try {
+      await navigator.clipboard.writeText(texto);
+    } catch (e) {
+      const t = el("textarea", { value: texto });
+      document.body.append(t);
+      t.select();
+      document.execCommand("copy");
+      t.remove();
+    }
+    const legenda = $("hero-legenda");
+    legenda.textContent = "Copiado!";
+    legenda.dataset.copiado = "";
+    clearTimeout(temporizadorCopia);
+    temporizadorCopia = setTimeout(() => { legenda.textContent = "Próximo número a usar"; delete legenda.dataset.copiado; }, 1300);
+  });
+
+  // --------------------------------------------------------------- Teclas
+  addEventListener("keydown", e => {
+    if (document.body.dataset.vista !== "numeracao") return;
+    if (e.key === "F5" && !e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); atualizar(true); return; }
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName || "")) return;
+    const i = ["1", "2", "3"].indexOf(e.key);
+    if (i >= 0 && i < C.CATEGORIAS.length) escolherCategoria(C.CATEGORIAS[i]);
+  });
+
+  // --------------------------------------------------------------- Início
+  pintarCategoria();
+  const pronto = (async () => {
+    if (!modoFicheiros) {
+      for (const c of C.CATEGORIAS) {
+        try { const h = await BD.get(`pasta.${c.id}`); if (h) pastas.set(c.id, h); } catch (e) {}
+      }
+    }
+    pintarCategoria();
+    await pintarPasta();
+    mostrar();
+  })();
+  entrouNaNumeracao = () => pronto.then(talvezAtualizar);
+  if (document.body.dataset.vista === "numeracao") entrouNaNumeracao();
 })();
 </script>
 
