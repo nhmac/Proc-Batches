@@ -800,10 +800,10 @@ function criarProgresso(el, tituloBase = document.title) {
   // Nunca se misturam: escolhe-se à mão antes de cada processo. Cada modo lembra o seu limite.
   const MODOS = {
     etiquetas: { titulo: "· Fotoprix + Dreambooks", chave: "autobatch.limite", padrao: "4500",
-      dica: "Uma pasta de etiquetas (um PDF por encomenda)." },
+      dica: "" },
     // Express: limite standard 2300 (pedido do utilizador). Chave nova para não herdar valores de testes
     express: { titulo: "· Express", chave: "autobatch.limite.express.v2", padrao: "2300",
-      dica: "Um PDF com as folhas das encomendas (ou uma pasta com vários). A quantidade é a soma da coluna Qtd de cada folha." },
+      dica: "" },
   };
   let modo = "etiquetas";
   try { if (localStorage.getItem("autobatch.modo") === "express") modo = "express"; } catch (e) {}
