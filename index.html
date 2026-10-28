@@ -337,7 +337,7 @@
 
     <div class="rodape">
       <button class="btn-principal" id="btn-processar" type="button">Processar PDFs</button>
-      <div class="versao">Versão web 1.3.1</div>
+      <div class="versao">Versão web 1.3.2</div>
     </div>
     </div>
 
@@ -365,7 +365,7 @@
 
       <div class="rodape">
         <button class="btn-principal" id="btn-atualizar" type="button">Atualizar</button>
-        <div class="versao">Versão web 1.3.1 · F5 atualiza</div>
+        <div class="versao">Versão web 1.3.2 · F5 atualiza</div>
       </div>
     </div>
   </aside>
@@ -486,13 +486,15 @@ const Logica = (() => {
     return lista;
   }
 
-  // Etiqueta: o número que está na AREA_NUMERO da página (encontrado = havia lá alguma coisa)
+  // Etiqueta: o número que está na AREA_NUMERO da página. encontrado = havia lá um número;
+  // texto que não é número conta como não encontrado (senão entrava no batch como 0)
   function lerEtiqueta(ps) {
     for (const p of ps) {
       // Lógica de tolerância de coordenadas
       if (AREA_NUMERO.x0 - TOLERANCIA <= p.x0 && p.x0 <= AREA_NUMERO.x1 + TOLERANCIA &&
           AREA_NUMERO.top - TOLERANCIA <= p.top && p.top <= AREA_NUMERO.bottom + TOLERANCIA) {
-        return { encontrado: true, valor: inteiroDeFloat(p.text.replace(/,/g, ".")) ?? 0 };
+        const v = inteiroDeFloat(p.text.replace(/,/g, "."));
+        return { encontrado: v !== null, valor: v ?? 0 };
       }
     }
     return { encontrado: false, valor: 0 };
@@ -607,7 +609,8 @@ const Logica = (() => {
   // .bloqueio = { texto, ficheiros } e nenhum batch. Regras (rigorosas, a pedido do utilizador):
   //  - Express: todos os PDFs têm de ter folhas Express e todas as encomendas têm de ser Express (faixa em TIPOS);
   //  - Fotoprix + Dreambooks: todos os PDFs com número no nome têm de ser Dreambooks ou Fotoprix (faixas em
-  //    TIPOS), sem misturar os dois; e pelo menos um tem de ter o número da etiqueta.
+  //    TIPOS), sem misturar os dois; e todos têm de ter o número da etiqueta (desde a 1.3.2: um PDF sem ele
+  //    entrava no batch como 0 e o batch podia passar o limite sem se notar).
   // Com sucesso, .aviso traz o texto do aviso de fim de faixa (ou "").
   async function calcular(ficheiros, limite, progresso = () => {}, modo = "etiquetas") {
     const pdfs = ficheiros.filter(f => f.nome.toLowerCase().endsWith(".pdf"))
@@ -692,6 +695,11 @@ const Logica = (() => {
     }
     if (modo !== "express" && lidos && semNumero.length === lidos) {
       return bloquear("Nenhum destes PDFs tem o número da etiqueta Fotoprix / Dreambooks. Confirma o modo.", semNumero);
+    }
+    if (modo !== "express" && semNumero.length) {
+      const n = semNumero.length;
+      return bloquear(`${n} PDF${n === 1 ? " não tem" : "s não têm"} o número da quantidade na etiqueta (não foi possível lê-lo). ` +
+        `Ia${n === 1 ? "" : "m"} entrar no batch como 0, e o batch podia passar o limite. Confirma ${n === 1 ? "este ficheiro" : "estes ficheiros"} ou tira-${n === 1 ? "o" : "os"} da pasta.`, semNumero);
     }
     const tipo = modo === "express" ? "Express" : porTipo.has("fotoprix") ? "Fotoprix" : porTipo.has("dreambooks") ? "Dreambooks" : "";
 
@@ -961,7 +969,7 @@ function criarProgresso(el, tituloBase = document.title) {
       const batches = await Logica.calcular(ficheiros, limite, progresso, modo);
       if (batches.bloqueio) {
         mostrarBloqueio(batches.bloqueio);
-        barraProgresso.concluir(false, "Bloqueado: os PDFs não correspondem ao modo escolhido");
+        barraProgresso.concluir(false, "Bloqueado: ver os ficheiros abaixo");
         estado("Bloqueado: nenhum batch foi criado.", "erro");
         return;
       }
