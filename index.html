@@ -161,6 +161,8 @@
   .modos button:hover:not(:disabled) { color: var(--texto); }
   .modos button[aria-checked="true"] { background: var(--card); color: var(--texto); box-shadow: 0 0 0 1px var(--borda); }
   .modos button:disabled { cursor: default; opacity: .55; }
+  .modos button[data-desligado] { font-size: 12px; line-height: 1.2; cursor: not-allowed; }
+  .modos button[data-desligado]:hover { color: var(--texto-sec); }
   .bloqueio { padding: 16px 18px; border-color: var(--erro); }
   .bloqueio-titulo { color: var(--erro); font-weight: 600; font-size: 16px; }
   .bloqueio p { margin: 6px 0 10px; }
@@ -309,7 +311,9 @@
     <div class="secao">Tipo de encomendas</div>
     <div class="modos" id="modos" role="radiogroup" aria-label="Tipo de encomendas">
       <button type="button" role="radio" data-modo="etiquetas" aria-checked="true">Fotoprix + Dreambooks</button>
-      <button type="button" role="radio" data-modo="express" aria-checked="false">Express</button>
+      <!-- Express desligado por agora (em desenvolvimento): o código fica todo, só não se escolhe.
+           Para voltar a ligar: tirar disabled, data-desligado e title, e o texto volta a "Express". -->
+      <button type="button" role="radio" data-modo="express" aria-checked="false" disabled data-desligado title="Em desenvolvimento">Express - em desenvolvimento</button>
     </div>
     <div class="dica" id="dica-modo"></div>
 
@@ -337,7 +341,7 @@
 
     <div class="rodape">
       <button class="btn-principal" id="btn-processar" type="button">Processar PDFs</button>
-      <div class="versao">Versão web 1.3.2</div>
+      <div class="versao">Versão web 1.3.4</div>
     </div>
     </div>
 
@@ -365,7 +369,7 @@
 
       <div class="rodape">
         <button class="btn-principal" id="btn-atualizar" type="button">Atualizar</button>
-        <div class="versao">Versão web 1.3.2 · F5 atualiza</div>
+        <div class="versao">Versão web 1.3.4 · F5 atualiza</div>
       </div>
     </div>
   </aside>
@@ -609,7 +613,8 @@ const Logica = (() => {
   // .bloqueio = { texto, ficheiros } e nenhum batch. Regras (rigorosas, a pedido do utilizador):
   //  - Express: todos os PDFs têm de ter folhas Express e todas as encomendas têm de ser Express (faixa em TIPOS);
   //  - Fotoprix + Dreambooks: todos os PDFs com número no nome têm de ser Dreambooks ou Fotoprix (faixas em
-  //    TIPOS), sem misturar os dois; e todos têm de ter o número da etiqueta (desde a 1.3.2: um PDF sem ele
+  //    TIPOS), sem misturar os dois; todos têm de começar pelo número da encomenda (desde a 1.3.3: os outros
+  //    ficavam de fora sem aviso); e todos têm de ter o número da etiqueta (desde a 1.3.2: um PDF sem ele
   //    entrava no batch como 0 e o batch podia passar o limite sem se notar).
   // Com sucesso, .aviso traz o texto do aviso de fim de faixa (ou "").
   async function calcular(ficheiros, limite, progresso = () => {}, modo = "etiquetas") {
@@ -638,6 +643,13 @@ const Logica = (() => {
     if (modo !== "express") {
       if (pdfs.length && !comNumero.length) {
         return bloquear("No modo Fotoprix + Dreambooks, cada encomenda é um PDF à parte cujo nome começa pelo número da encomenda (como na pasta das etiquetas). Nenhum destes PDFs é assim.", pdfs.map(p => p.nome));
+      }
+      // Desde a 1.3.3: um PDF sem o número no nome ficava de fora dos batches sem aviso
+      const semNumeroNome = pdfs.filter(p => inteiro(prefixo(p.nome)) === null).map(p => p.nome);
+      if (semNumeroNome.length) {
+        const n = semNumeroNome.length, um = n === 1;
+        return bloquear(`${n} PDF${um ? "" : "s"} não começa${um ? "" : "m"} pelo número da encomenda e ficava${um ? "" : "m"} de fora dos batches. ` +
+          `Confirma ${um ? "este ficheiro" : "estes ficheiros"} ou tira-${um ? "o" : "os"} da pasta.`, semNumeroNome);
       }
       if (desconhecidos.length) {
         return bloquear(`${desconhecidos.length} PDF${desconhecidos.length === 1 ? " tem" : "s têm"} um número de encomenda fora das faixas Dreambooks (${faixa("dreambooks")}) e Fotoprix (${faixa("fotoprix")}). ` +
@@ -947,7 +959,8 @@ function criarProgresso(el, tituloBase = document.title) {
     $("btn-processar").textContent = sim ? "A processar…" : "Processar PDFs";
     $("btn-pasta").disabled = sim;
     $("btn-pdf").disabled = sim;
-    for (const b of $("modos").children) b.disabled = sim;
+    // Um modo desligado (data-desligado) continua desativado depois de processar
+    for (const b of $("modos").children) b.disabled = sim || "desligado" in b.dataset;
   }
 
   const barraProgresso = criarProgresso($("progresso"));
