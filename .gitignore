@@ -1,0 +1,14 @@
+# Site gerado pelo build (publicado pelo GitHub Actions)
+_site/
+
+# Python
+__pycache__/
+.venv/
+
+# PDFs e imagens de teste: ficam só nos PCs (têm encomendas reais)
+*.pdf
+debug/*.png
+PDFs/
+pdf-testes/
+Papel 25/
+*.orig

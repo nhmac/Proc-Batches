@@ -1,20 +1,7 @@
-<!doctype html>
-<html lang="pt-PT">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Agrupa os PDFs de etiquetas em batches até ao limite de quantidade e mostra o próximo número de batch a usar.">
-<meta name="theme-color" content="#15171c">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icone.ico">
-<link rel="apple-touch-icon" href="icon-192.png">
 <title>Proc-Batches</title>
-<style>
-  @font-face { font-family: "Inter"; font-weight: 400; font-display: swap; src: url("fonts/Inter_18pt-Regular.ttf") format("truetype"); }
-  @font-face { font-family: "Inter"; font-weight: 600; font-display: swap; src: url("fonts/Inter_18pt-SemiBold.ttf") format("truetype"); }
-  body { margin: 0; }
-  [hidden] { display: none !important; }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,600&display=swap">
 <style>
   /* Tema da linha "Processamento" (processamento_ui.py): só dark mode, por opção */
   :root {
@@ -294,8 +281,6 @@
     #dia-outro { min-width: 0; width: 100%; }
   }
 </style>
-</head>
-<body>
 
 <div class="app">
   <aside class="sidebar">
@@ -431,7 +416,9 @@
 </div>
 <div class="largar" id="largar" hidden>Larga a pasta ou os PDFs</div>
 
-<script src="vendor/pdfjs/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- Carregado como script: o pdf.js corre o worker na própria página (o sandbox não deixa criar workers de outro domínio) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 
 <script id="logica">
 // Mesma lógica do main.py (AutoBatch em Python). Sem acesso ao DOM, para poder ser testada à parte.
@@ -838,7 +825,7 @@ function criarProgresso(el, tituloBase = document.title) {
 <script>
 (() => {
   if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc =
-    "vendor/pdfjs/pdf.worker.min.js";
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
   const $ = id => document.getElementById(id);
   const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
@@ -1625,9 +1612,3 @@ const Numeracao = (() => {
   if (document.body.dataset.vista === "numeracao") entrouNaNumeracao();
 })();
 </script>
-
-<script>
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
-</script>
-</body>
-</html>
