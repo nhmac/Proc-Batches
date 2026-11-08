@@ -1,5 +1,12 @@
 # Proc-Batches
 
+**Primeiro passo de cada sessão, antes de ler ou alterar código:** `git pull --ff-only`. O utilizador
+trabalha em dois PCs e no Claude Code na web, e o GitHub é a única fonte. Se o pull falhar (alterações
+locais por enviar, conflito, sem rede), parar e avisar o utilizador. Nunca forçar.
+
+**No fim**, se houver alterações, commit e push (publicar só quando o utilizador pedir): não deixar
+trabalho só neste PC.
+
 Ver `PROJETO.md` (o que a app faz, pastas, versão Python). O `README.md` da raiz é o do GitHub,
 comentado de propósito pelo utilizador: não mexer.
 
@@ -7,7 +14,7 @@ comentado de propósito pelo utilizador: não mexer.
 
 O utilizador trabalha em dois PCs e no Claude Code na web. Nenhum PC é o principal.
 
-1. **Antes de mexer:** `git pull`.
+1. `git pull --ff-only` (ver o primeiro passo, no topo).
 2. Alterar só `web/autobatch.html` (a fonte do site) e subir o "Versão web" do rodapé.
    A versão Python (`main.py`) é referência da lógica: alterar também só se o utilizador pedir.
 3. Testar: `py build_pages.py` (ou `python3`) gera `_site/`. Testar o `_site/index.html`, não o
