@@ -12,7 +12,8 @@ comentado de propósito pelo utilizador: não mexer.
 
 ## Fluxo de trabalho (GitHub é a única fonte)
 
-O utilizador trabalha em dois PCs e no Claude Code na web. Nenhum PC é o principal.
+O utilizador trabalha em dois PCs e no Claude Code na web. Só o PC pessoal tem cópia local; no PC do
+trabalho usa-se só o browser (ver "No Claude Code na web", abaixo).
 
 1. `git pull --ff-only` (ver o primeiro passo, no topo).
 2. Alterar só `web/autobatch.html` (a fonte do site) e subir o "Versão web" do rodapé.
