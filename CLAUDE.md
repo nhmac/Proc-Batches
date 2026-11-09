@@ -24,6 +24,10 @@ O utilizador trabalha em dois PCs e no Claude Code na web. Nenhum PC é o princi
    `gh run list` e com `curl https://nhmac.github.io/Proc-Batches/` (rodapé "Versão web").
 5. Push recusado: `git pull --rebase` e resolver. **Nunca forçar o push.**
 
+**No Claude Code na web** (usado no PC do trabalho, que não tem git): as alterações vão para um
+ramo `claude/...`, não para o `main`. Para publicar, criar o pull request e o utilizador faz **Merge**
+no github.com (o Actions publica a seguir). Os PDFs de teste não existem lá: testar no site publicado.
+
 Os PDFs de teste não vão para o git (`.gitignore`): só existem nos PCs. Os PDFs são lidos no
 browser e nunca são enviados para lado nenhum: não introduzir pedidos de rede.
 
