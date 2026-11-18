@@ -4,7 +4,7 @@ Agrupa os PDFs de etiquetas em batches até ao limite de quantidade.
 
 - **App:** https://nhmac.github.io/Proc-Batches/ (Chrome, Edge ou Brave; pode ser instalada como app)
 - **Repositório:** https://github.com/nhmac/Proc-Batches (código-fonte no `main`; o site é gerado e publicado pelo GitHub Actions)
-- **Versão atual:** web 1.3.7 (modo Express ligado)
+- **Versão atual:** web 1.4 (modo Duplicados novo)
 
 Os PDFs são lidos no browser e não são enviados para lado nenhum.
 
@@ -24,6 +24,9 @@ PDF não tem o número da quantidade na etiqueta (antes entrava no batch como 0,
 a 1.3.3 é bloqueado também quando algum PDF não começa pelo número da encomenda (antes ficava de
 fora dos batches, sem aviso). O modo **Numeração** (próximo número de batch, a partir das pastas BATCHES)
 já está no código mas desligado ("em desenvolvimento", `NUMERACAO_ATIVA`).
+
+O modo **Duplicados** (desde a 1.4) encontra PDFs repetidos nas pastas de papel e tira as cópias a mais.
+Ver "Modo Duplicados", abaixo.
 
 ## Atualizar a app
 
@@ -47,6 +50,7 @@ Só usa a biblioteca padrão do Python e o git.
 | `PDFs/` | PDFs de exemplo para testes |
 | `main.py`, `processamento_ui.py` | Versão Python (referência da lógica): tem os dois modos do Agrupar e as mesmas regras desde a 1.3.1; não tem a Numeração |
 | `debug/` | Scripts para descobrir as coordenadas do número na etiqueta |
+| `testes/` | `node testes/duplicados.js`: testes da lógica do modo Duplicados (sem PDFs reais) |
 
 ## Versão Python e scripts de debug
 
@@ -79,3 +83,32 @@ tabela (4 900 000 / 9 900 000), a página mostra "Atenção: numeração perto d
 Casos reais de teste em `PDFs/novos testes/` (só nos PCs: os PDFs não vão para o git) (um PDF com várias encomendas de cada tipo, 2026-10-28).
 Para o modo Fotoprix + Dreambooks dividem-se por página em `<id da folha>_label.pdf` (como na pasta das
 etiquetas). O modo Express lê o PDF inteiro.
+
+## Modo Duplicados
+
+Encontra PDFs repetidos numa pasta com pastas de papel (ex.: a "00", com `CA Lustre`, `DPII Lustre`,
+`DPII Glossy`, `DPII_Seda`, `Crystal_Brilho`) e tira as cópias a mais. Lógica no
+`<script id="logica-duplicados">` (objeto `Duplicados`, sem DOM), interface no `<script id="duplicados">`.
+A versão Python não tem este modo.
+
+- **Repetido** = conteúdo igual byte a byte, com qualquer nome. Só se leem por inteiro os PDFs com
+  tamanho repetido (SHA-256). PDFs com o mesmo nome e conteúdo diferente aparecem à parte e não se mexe neles.
+- **Que cópia fica:** a que está na pasta do papel do campo "Tipo de Papel" do item, na etiqueta
+  (`lerEtiqueta`). O papel da pasta tira-se do nome (`papelDaPasta`): família `CA`/`Crystal` ou `DPII` e
+  acabamento Lustre, Brilho/Glossy, Seda/Silk ou Mate. "Lustre" sem família (Schools) serve para as duas
+  famílias. Cópias na mesma pasta: fica a de nome original (`<encomenda>_<id>_label.pdf`).
+- **Por decidir** (o operador clica na cópia que fica): sem papel na etiqueta, nenhuma pasta do papel,
+  ou mais de uma pasta que serve. Também se pode pôr qualquer PDF em "Não mexer neste".
+- **Confirma o papel** (aviso, não bloqueia): quando nenhum papel da lista do fundo da etiqueta
+  ("Impressão 10x15 CA Lustre", …) bate certo com o do item. Essa lista tem todos os itens da encomenda,
+  por isso não decide nada.
+- **Limpar:** "Mover para _Duplicados" (por omissão; cria `_Duplicados` dentro da pasta escolhida, com as
+  mesmas subpastas, e confirma a cópia antes de apagar o original) ou "Apagar" (de vez). Antes de cada
+  ficheiro confirma que é igual, byte a byte, à cópia que fica. No fim lê a pasta de novo.
+- A pasta escolhe-se só para leitura; a autorização para alterar pede-se ao carregar em Limpar. Só funciona
+  no Chrome/Edge com "Escolher pasta…" (ou ao arrastar a pasta). Sem isso, a análise faz-se mas o Limpar
+  fica desligado. A pasta `_Duplicados` é ignorada nas análises seguintes.
+
+Testado (2026-11-18) com uma pasta "00" real de 232 PDFs: 25 repetidos, 27 cópias a mais (21 em
+`CA Lustre`, 6 em `Crystal_Brilho`), 15 com "Confirma o papel" (encomendas 6538763, 6537120 e
+6538883: item DPII Lustre, lista da encomenda CA Lustre). O resultado foi igual à limpeza feita à mão.

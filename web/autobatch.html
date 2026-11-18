@@ -281,6 +281,86 @@
     #dia-outro { min-width: 0; width: 100%; }
   }
 </style>
+<style id="duplicados-css">
+  /* ------------------------------------------------------ Modo Duplicados */
+  /* Três separadores: Agrupar e Duplicados lado a lado, Numeração numa linha só por baixo */
+  #tab-numeracao { grid-column: 1 / -1; }
+  #estado-dup { color: var(--texto-sec); text-align: right; }
+  #estado-dup[data-tipo="ativo"] { color: var(--accent-texto); }
+  #estado-dup[data-tipo="ok"] { color: var(--sucesso); }
+  #estado-dup[data-tipo="erro"] { color: var(--erro); }
+  .stats.quatro { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  .titulo-card { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--texto-sec); }
+  .pastas-dup { padding: 14px 16px 12px; display: grid; gap: 8px; }
+  .linhas-pastas { display: grid; }
+  .linhas-pastas div {
+    display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, auto); align-items: baseline; gap: 18px;
+    padding: 5px 10px; border-radius: 4px; font-variant-numeric: tabular-nums;
+  }
+  .linhas-pastas div:nth-child(even) { background: var(--linha-alt); }
+  .linhas-pastas .nome { font: 13px/20px var(--mono); overflow-wrap: anywhere; }
+  .linhas-pastas .num { min-width: 7ch; text-align: right; color: var(--texto-sec); font-size: 13px; }
+  .linhas-pastas .num.sai { color: var(--erro); }
+  .linhas-pastas .num.fica { color: var(--texto); font-weight: 600; }
+  .linhas-pastas .num.vazia { color: var(--aviso); }
+  .linhas-pastas .cabeca span { font-size: 12px; color: var(--texto-sec); font-weight: 600; }
+
+  #lista-dup { display: grid; gap: 10px; align-content: start; }
+  .dup { padding: 12px 14px; display: grid; gap: 8px; }
+  .dup[data-estado="rever"], .dup[data-estado="aviso"] { border-color: var(--aviso); }
+  .dup[data-estado="nada"] { opacity: .6; }
+  .dup-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .dup-topo .nome { font: 13px/20px var(--mono); overflow-wrap: anywhere; min-width: 0; }
+  .dup-topo .estado-grupo { margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--sucesso-texto); white-space: nowrap; }
+  .dup[data-estado="rever"] .estado-grupo, .dup[data-estado="aviso"] .estado-grupo { color: var(--aviso); }
+  .dup[data-estado="nada"] .estado-grupo { color: var(--texto-sec); }
+  .copias { display: grid; gap: 4px; }
+  .copia {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px;
+    width: 100%; padding: 7px 10px; border-radius: 6px; text-align: left; cursor: pointer;
+    background: var(--sub); border: 1px solid transparent; transition: background .15s, border-color .15s;
+  }
+  .copia:hover:not(:disabled) { background: var(--card-hover); }
+  .copia:disabled { cursor: default; }
+  .copia .onde { display: grid; min-width: 0; }
+  .copia b { font-weight: 600; overflow-wrap: anywhere; }
+  .copia small { font: 12px/18px var(--mono); color: var(--texto-sec); overflow-wrap: anywhere; }
+  .copia em { font-style: normal; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--texto-sec); }
+  .copia[data-acao="fica"] { border-color: var(--sucesso); }
+  .copia[data-acao="fica"] em { color: var(--sucesso-texto); }
+  .copia[data-acao="sai"] b { color: var(--texto-sec); text-decoration: line-through; }
+  .copia[data-acao="sai"] em { color: var(--erro); }
+  .dup-nota { font-size: 12.5px; color: var(--texto-sec); }
+  .dup-nota.aviso { color: var(--aviso); }
+  .dup .link { margin: -4px 0 -4px -6px; justify-self: start; }
+  .resultado-dup { padding: 14px 18px; border-color: var(--sucesso); }
+  .resultado-dup .titulo-resultado { color: var(--sucesso-texto); font-weight: 600; }
+  .resultado-dup.erro { border-color: var(--erro); }
+  .resultado-dup.erro .titulo-resultado { color: var(--erro); }
+  .resultado-dup p { margin: 6px 0 0; }
+  .nomes-dup { padding: 14px 18px; border-color: var(--aviso); }
+  .nomes-dup p { margin: 6px 0 8px; color: var(--texto-sec); }
+
+  /* Pergunta antes de mexer na pasta (só avisos, nunca para sucesso) */
+  #dialogo-dup {
+    width: min(520px, calc(100vw - 32px)); padding: 0; border-radius: 10px;
+    background: var(--sidebar); color: var(--texto); border: 1px solid var(--borda);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, .5);
+  }
+  #dialogo-dup::backdrop { background: rgba(10, 11, 14, .6); }
+  #dialogo-dup form { padding: 20px 20px 16px; }
+  #dialogo-dup h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  #dialogo-dup h3::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--aviso); }
+  #dialogo-dup-texto { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 60vh; overflow-y: auto; }
+  .dialogo-botoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+  .dialogo-botoes .btn, .dialogo-botoes .btn-principal { width: auto; min-width: 96px; padding: 0 16px; }
+
+  @media (max-width: 760px) {
+    .stats.quatro { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .linhas-pastas div { gap: 10px; }
+  }
+</style>
 
 <div class="app">
   <aside class="sidebar">
@@ -289,6 +369,7 @@
 
     <div class="vistas" role="tablist" aria-label="Modo">
       <button type="button" role="tab" id="tab-agrupar" aria-selected="true" aria-controls="main-agrupar">Agrupar</button>
+      <button type="button" role="tab" id="tab-duplicados" aria-selected="false" aria-controls="main-duplicados">Duplicados</button>
       <button type="button" role="tab" id="tab-numeracao" aria-selected="false" aria-controls="main-numeracao" disabled title="Em desenvolvimento">Numeração - em desenvolvimento</button>
     </div>
 
@@ -326,7 +407,7 @@
 
     <div class="rodape">
       <button class="btn-principal" id="btn-processar" type="button">Processar PDFs</button>
-      <div class="versao">Versão web 1.3.7</div>
+      <div class="versao">Versão web 1.4</div>
     </div>
     </div>
 
@@ -354,7 +435,39 @@
 
       <div class="rodape">
         <button class="btn-principal" id="btn-atualizar" type="button">Atualizar</button>
-        <div class="versao">Versão web 1.3.7 · F5 atualiza</div>
+        <div class="versao">Versão web 1.4 · F5 atualiza</div>
+      </div>
+    </div>
+
+    <div class="vista-side" id="side-duplicados" hidden>
+      <div class="secao">Pasta</div>
+      <div class="grupo">
+        <button class="btn" id="btn-pasta-dup" type="button">Escolher pasta…</button>
+        <input id="input-pasta-dup" type="file" webkitdirectory multiple hidden>
+        <div class="chip" id="chip-dup">
+          <div class="nome" id="nome-pasta-dup">Nenhuma pasta selecionada</div>
+          <div class="contagem" id="n-pdfs-dup" hidden></div>
+          <div class="estado-acesso" id="acesso-dup" hidden></div>
+        </div>
+        <div class="dica">A pasta que tem as pastas de papel lá dentro (ex.: a "00", com CA Lustre, DPII Lustre…).</div>
+        <button class="link" id="btn-reanalisar-dup" type="button" hidden>Analisar de novo</button>
+      </div>
+
+      <div class="secao" id="secao-acao-dup">Cópias a mais</div>
+      <div class="modos" id="modos-dup" role="radiogroup" aria-labelledby="secao-acao-dup">
+        <button type="button" role="radio" data-acao="mover" aria-checked="true">Mover para _Duplicados</button>
+        <button type="button" role="radio" data-acao="apagar" aria-checked="false">Apagar</button>
+      </div>
+      <div class="dica" id="dica-acao-dup"></div>
+
+      <div class="privado">
+        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" d="M4 7V5a4 4 0 0 1 8 0v2M3 7h10v7H3z"/></svg>
+        <span>Os PDFs são lidos neste browser. Nenhum ficheiro é enviado. A pasta só muda quando carregas em Limpar.</span>
+      </div>
+
+      <div class="rodape">
+        <button class="btn-principal" id="btn-limpar-dup" type="button" disabled>Limpar duplicados</button>
+        <div class="versao">Versão web 1.4</div>
       </div>
     </div>
   </aside>
@@ -412,9 +525,40 @@
         </div>
       </section>
     </div>
+
+    <div class="vista-main" id="main-duplicados" role="tabpanel" aria-labelledby="tab-duplicados" hidden>
+      <div class="cabecalho">
+        <h2>Duplicados</h2>
+        <div id="estado-dup" role="status">Pronto para iniciar</div>
+      </div>
+      <div class="progresso" id="progresso-dup" role="progressbar" aria-label="Progresso" aria-valuemin="0" aria-valuemax="100" hidden>
+        <div class="barra"><i></i></div>
+        <div class="progresso-legenda"><span class="progresso-detalhe"></span><span class="progresso-valor"></span></div>
+      </div>
+
+      <div class="stats quatro" id="stats-dup" hidden>
+        <div class="card stat"><b id="stat-dup-pdfs">0</b><span>PDFs lidos</span></div>
+        <div class="card stat"><b id="stat-dup-grupos">0</b><span>PDFs repetidos</span></div>
+        <div class="card stat"><b id="stat-dup-sai">0</b><span>Cópias a mais</span></div>
+        <div class="card stat"><b id="stat-dup-rever">0</b><span>Por decidir</span></div>
+      </div>
+
+      <div id="lista-dup"></div>
+      <div class="vazio" id="vazio-dup">Escolhe a pasta com as pastas de papel</div>
+    </div>
   </main>
 </div>
 <div class="largar" id="largar" hidden>Larga a pasta ou os PDFs</div>
+<dialog id="dialogo-dup" aria-labelledby="dialogo-dup-titulo">
+  <form method="dialog">
+    <h3 id="dialogo-dup-titulo"></h3>
+    <p id="dialogo-dup-texto"></p>
+    <div class="dialogo-botoes">
+      <button class="btn" id="dialogo-dup-nao" value="nao">Cancelar</button>
+      <button class="btn-principal" id="dialogo-dup-sim" value="sim"></button>
+    </div>
+  </form>
+</dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- Carregado como script: o pdf.js corre o worker na própria página (o sandbox não deixa criar workers de outro domínio) -->
@@ -913,10 +1057,10 @@ function criarProgresso(el, tituloBase = document.title) {
 
   // Arrastar uma pasta (ou PDFs soltos) para a janela
   let arrastos = 0;
-  // No modo Numeração não se larga nada (o arrastar é só do Agrupar)
-  const noAgrupar = () => document.body.dataset.vista !== "numeracao";
+  // Nos outros modos o arrastar não é do Agrupar (a Numeração não larga nada; o Duplicados tem o seu)
+  const noAgrupar = () => document.body.dataset.vista === "agrupar";
   addEventListener("dragenter", e => { if (ocupado || !noAgrupar()) return; e.preventDefault(); arrastos++; $("largar").hidden = false; });
-  addEventListener("dragleave", () => { if (--arrastos <= 0) { arrastos = 0; $("largar").hidden = true; } });
+  addEventListener("dragleave", () => { if (!noAgrupar()) return; if (--arrastos <= 0) { arrastos = 0; $("largar").hidden = true; } });
   addEventListener("dragover", e => e.preventDefault());
   addEventListener("drop", async e => {
     e.preventDefault();
@@ -1214,22 +1358,20 @@ const Numeracao = (() => {
   // Modo Numeração desligado por agora (em desenvolvimento): o código fica todo, só não se entra.
   // Para voltar a ligar: NUMERACAO_ATIVA = true e tirar o disabled/texto do botão #tab-numeracao.
   const NUMERACAO_ATIVA = false;
+  const VISTAS = ["agrupar", "duplicados", "numeracao"];
   function mudarVista(v) {
-    if (!NUMERACAO_ATIVA) v = "agrupar";
-    const num = v === "numeracao";
-    document.body.dataset.vista = num ? "numeracao" : "agrupar";
-    $("tab-agrupar").setAttribute("aria-selected", String(!num));
-    $("tab-numeracao").setAttribute("aria-selected", String(num));
-    $("side-agrupar").hidden = num;
-    $("main-agrupar").hidden = num;
-    $("side-numeracao").hidden = !num;
-    $("main-numeracao").hidden = !num;
-    guardar("procbatches.vista", document.body.dataset.vista);
-    if (num) entrouNaNumeracao();
+    if (!VISTAS.includes(v) || (v === "numeracao" && !NUMERACAO_ATIVA)) v = "agrupar";
+    document.body.dataset.vista = v;
+    for (const x of VISTAS) {
+      $(`tab-${x}`).setAttribute("aria-selected", String(x === v));
+      $(`side-${x}`).hidden = x !== v;
+      $(`main-${x}`).hidden = x !== v;
+    }
+    guardar("procbatches.vista", v);
+    if (v === "numeracao") entrouNaNumeracao();
   }
-  $("tab-agrupar").addEventListener("click", () => mudarVista("agrupar"));
-  $("tab-numeracao").addEventListener("click", () => mudarVista("numeracao"));
-  mudarVista(lerGuardado("procbatches.vista") === "numeracao" ? "numeracao" : "agrupar");
+  for (const x of VISTAS) $(`tab-${x}`).addEventListener("click", () => mudarVista(x));
+  mudarVista(lerGuardado("procbatches.vista"));
 
   // ------------------------------------- Acesso guardado à pasta (IndexedDB)
   const BD = (() => {
@@ -1610,5 +1752,611 @@ const Numeracao = (() => {
   })();
   entrouNaNumeracao = () => pronto.then(talvezAtualizar);
   if (document.body.dataset.vista === "numeracao") entrouNaNumeracao();
+})();
+</script>
+<script id="logica-duplicados">
+// Duplicados: PDFs repetidos (conteúdo igual, byte a byte) nas pastas de papel. Sem acesso ao DOM, para
+// poder ser testada à parte (node testes/duplicados.js).
+// A cópia que fica é a que está na pasta do papel que a etiqueta indica no campo "Tipo de Papel" do item.
+// A lista do fundo da etiqueta ("Impressão 10x15 CA Lustre", …) tem todos os itens da encomenda, não só
+// este: não decide nada, só serve para avisar quando nenhum papel dela bate certo com o do item.
+const Duplicados = (() => {
+  const PASTA_DUPLICADOS = "_Duplicados"; // para onde vão as cópias a mais (dentro da pasta escolhida)
+  const NIVEIS = 4;                         // subpastas lidas abaixo da pasta escolhida
+
+  // Família e acabamento do papel. "Crystal" é o Crystal Archive (CA); Glossy = Brilho, Silk = Seda.
+  const FAMILIAS = { ca: "CA", crystal: "CA", dpii: "DPII" };
+  const ACABAMENTOS = { lustre: "Lustre", glossy: "Brilho", brilho: "Brilho", silk: "Seda", seda: "Seda", matte: "Mate", mate: "Mate" };
+  const RE_PAPEL = /(?:\b(CA|DPII|Crystal)[\s_-]+)?\b(Lustre|Glossy|Brilho|Silk|Seda|Matte|Mate)\b/gi;
+
+  function papeisNoTexto(texto) {
+    const lista = [];
+    for (const m of texto.matchAll(RE_PAPEL)) {
+      lista.push({
+        familia: m[1] ? FAMILIAS[m[1].toLowerCase()] : null,
+        acabamento: ACABAMENTOS[m[2].toLowerCase()],
+        texto: m[0].replace(/[\s_-]+/g, " "),
+      });
+    }
+    return lista;
+  }
+  const chave = p => `${p.familia ?? ""}|${p.acabamento}`;
+  const unicos = lista => [...new Map(lista.map(p => [chave(p), p])).values()];
+
+  // Papel de uma pasta pelo nome: "DPII Lustre", "DPII_Seda", "Crystal_Brilho", "CA Lustre"…
+  function papelDaPasta(nome) {
+    const palavras = String(nome).toLowerCase().split(/[\s_\-.]+/);
+    const acabamento = palavras.map(p => ACABAMENTOS[p]).find(Boolean);
+    if (!acabamento) return null;
+    return { familia: palavras.map(p => FAMILIAS[p]).find(Boolean) ?? null, acabamento, texto: nome };
+  }
+
+  // Mesmo acabamento e, se os dois disserem a família, a mesma família ("Lustre" das Schools serve
+  // tanto para CA Lustre como para DPII Lustre)
+  const compativeis = (a, b) => !!a && !!b && a.acabamento === b.acabamento &&
+    (!a.familia || !b.familia || a.familia === b.familia);
+
+  // Texto da etiqueta (pdf.js) -> papel do item e papéis da lista da encomenda
+  function lerEtiqueta(texto) {
+    let item = "";
+    const i = texto.search(/Tipo de Papel/i);
+    if (i >= 0) {
+      const resto = texto.slice(i);
+      const fim = resto.search(/Ficheiros de|Observa/i);
+      item = fim >= 0 ? resto.slice(0, fim) : resto.slice(0, 300);
+    }
+    const papeisItem = unicos(papeisNoTexto(item));
+    const j = texto.search(/Cliente N\S*\s*\d/);
+    const linhas = j >= 0 ? texto.slice(j).split("\n").filter(l => /^\s*Impress/i.test(l)) : [];
+    const papeisEncomenda = unicos(linhas.flatMap(papeisNoTexto));
+    const papel = papeisItem.length === 1 ? papeisItem[0] : null;
+    const conflito = !!papel && papeisEncomenda.length > 0 && !papeisEncomenda.some(p => compativeis(p, papel));
+    return { papel, papeisItem, papeisEncomenda, conflito };
+  }
+
+  // Ordem dos nomes numa pasta do Windows (maiúsculas e minúsculas iguais)
+  function ordemDaPasta(a, b) {
+    const x = a.toUpperCase(), y = b.toUpperCase();
+    return x < y ? -1 : x > y ? 1 : a < b ? -1 : a > b ? 1 : 0;
+  }
+
+  // O ID é o segundo pedaço do nome: "6538763_1528902_label.pdf" -> "1528902"
+  const idDoNome = nome => nome.split("_")[1]?.replace(/\.pdf$/i, "") ?? "";
+
+  // Entre cópias que podem ficar, a de nome original ("<encomenda>_<id>_label.pdf", sem "(1)" nem "- Cópia")
+  const ORIGINAL = /^\d+_\d+_label\.pdf$/i;
+  function preferida(copias, indices = copias.map((_, i) => i)) {
+    return [...indices].sort((a, b) =>
+      (ORIGINAL.test(copias[a].nome) ? 0 : 1) - (ORIGINAL.test(copias[b].nome) ? 0 : 1) ||
+      copias[a].nome.length - copias[b].nome.length ||
+      ordemDaPasta(copias[a].caminho, copias[b].caminho))[0];
+  }
+
+  // copias: [{nome, caminho, dir, pasta}] com o mesmo conteúdo; etiqueta: lerEtiqueta(...) ou null.
+  // -> { manter: índice da cópia que fica (null = por decidir), motivo, aviso }
+  function decidir(copias, etiqueta) {
+    if (new Set(copias.map(c => c.dir)).size === 1) {
+      return { manter: preferida(copias), motivo: "Cópias na mesma pasta: fica a de nome original.", aviso: null };
+    }
+    const papel = etiqueta?.papel;
+    if (!papel) {
+      const varios = etiqueta?.papeisItem?.length > 1;
+      return { manter: null, aviso: null, motivo: varios
+        ? `A etiqueta tem mais de um papel (${etiqueta.papeisItem.map(p => p.texto).join(", ")}). Escolhe a cópia que fica.`
+        : "Não encontrei o papel na etiqueta. Escolhe a cópia que fica." };
+    }
+    const certas = copias.map((c, i) => i).filter(i => compativeis(papelDaPasta(copias[i].pasta), papel));
+    if (!certas.length) {
+      return { manter: null, aviso: null, motivo: `Papel na etiqueta: ${papel.texto}. Nenhuma destas pastas é desse papel: escolhe a cópia que fica.` };
+    }
+    if (new Set(certas.map(i => copias[i].dir)).size > 1) {
+      return { manter: null, aviso: null, motivo: `Papel na etiqueta: ${papel.texto}. Mais de uma pasta serve: escolhe a cópia que fica.` };
+    }
+    const aviso = etiqueta.conflito
+      ? `A lista da encomenda, no fundo da etiqueta, diz ${etiqueta.papeisEncomenda.map(p => p.texto).join(", ")}. Confirma o papel antes de limpar.`
+      : null;
+    return { manter: preferida(copias, certas), motivo: `Papel na etiqueta: ${papel.texto}.`, aviso };
+  }
+
+  // ficheiros: [{nome, caminho, dir, pasta, tamanho, hash}] (hash só nos que têm tamanho repetido).
+  // -> grupos: [{hash, copias}] com 2+ cópias; nomesIguais: [{nome, copias}] com o mesmo nome e conteúdo diferente
+  function agrupar(ficheiros) {
+    const porHash = new Map();
+    for (const f of ficheiros) {
+      if (!f.hash) continue;
+      if (!porHash.has(f.hash)) porHash.set(f.hash, []);
+      porHash.get(f.hash).push(f);
+    }
+    const grupos = [...porHash].filter(([, l]) => l.length > 1)
+      .map(([hash, l]) => ({ hash, copias: l.sort((a, b) => ordemDaPasta(a.caminho, b.caminho)) }))
+      .sort((a, b) => ordemDaPasta(a.copias[0].nome, b.copias[0].nome) || ordemDaPasta(a.copias[0].caminho, b.copias[0].caminho));
+    const porNome = new Map();
+    for (const f of ficheiros) {
+      const k = f.nome.toLowerCase();
+      if (!porNome.has(k)) porNome.set(k, []);
+      porNome.get(k).push(f);
+    }
+    const nomesIguais = [...porNome.values()]
+      .filter(l => l.length > 1 && new Set(l.map(f => f.hash ?? `só:${f.caminho}`)).size > 1)
+      .map(l => ({ nome: l[0].nome, copias: l.sort((a, b) => ordemDaPasta(a.caminho, b.caminho)) }))
+      .sort((a, b) => ordemDaPasta(a.nome, b.nome));
+    return { grupos, nomesIguais };
+  }
+
+  // Quantos PDFs há em cada pasta, antes e depois de tirar os caminhos de "sai" (Set)
+  function resumoPastas(ficheiros, sai, nomeRaiz = "") {
+    const porDir = new Map();
+    for (const f of ficheiros) {
+      if (!porDir.has(f.dir)) porDir.set(f.dir, { pasta: f.dir || nomeRaiz, antes: 0, sai: 0 });
+      const p = porDir.get(f.dir);
+      p.antes++;
+      if (sai.has(f.caminho)) p.sai++;
+    }
+    return [...porDir.values()].map(p => ({ ...p, depois: p.antes - p.sai }))
+      .sort((a, b) => ordemDaPasta(a.pasta, b.pasta));
+  }
+
+  function iguais(a, b) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+
+  // "x.pdf" -> "x (2).pdf", "x (3).pdf"… (quando já há um com o mesmo nome em _Duplicados)
+  function nomeAlternativo(nome, n) {
+    const m = /^(.*?)(\.[^.]*)?$/.exec(nome);
+    return `${m[1]} (${n})${m[2] ?? ""}`;
+  }
+
+  return { PASTA_DUPLICADOS, NIVEIS, papeisNoTexto, papelDaPasta, compativeis, lerEtiqueta, ordemDaPasta, idDoNome,
+    preferida, decidir, agrupar, resumoPastas, iguais, nomeAlternativo };
+})();
+</script>
+
+<script id="duplicados">
+(() => {
+  const $ = id => document.getElementById(id);
+  const D = Duplicados;
+  const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  const plural = (n, s, p) => (n === 1 ? s : p);
+  function el(tag, props = {}, ...filhos) {
+    const e = Object.assign(document.createElement(tag), props);
+    e.append(...filhos.filter(f => f !== null && f !== undefined && f !== false));
+    return e;
+  }
+
+  // origem: { nome, no, handle } (Escolher pasta / arrastar com acesso à pasta) ou { nome, ficheiros } (só leitura)
+  let origem = null;
+  let analise = null;     // { lista, grupos, nomesIguais }
+  let ultimaLimpeza = null;
+  let ocupado = false;
+  let acao = "mover";     // abre sempre em "Mover" (o mais seguro)
+  const barra = criarProgresso($("progresso-dup"));
+  const naVista = () => document.body.dataset.vista === "duplicados";
+
+  // Dentro de uma página de outro endereço (ex.: uma pré-visualização), o browser não deixa escolher pastas
+  const emMolduraExterna = (() => { try { return window.top !== window && !window.top.location.href; } catch (e) { return true; } })();
+  const comAcesso = typeof window.showDirectoryPicker === "function" && !emMolduraExterna;
+
+  function estado(texto, tipo = "idle") {
+    $("estado-dup").textContent = texto;
+    $("estado-dup").dataset.tipo = tipo;
+  }
+
+  // ------------------------------------------------------------- Mover / Apagar
+  const DICAS = {
+    mover: `As cópias a mais vão para a pasta ${D.PASTA_DUPLICADOS}, dentro da pasta escolhida. Depois de conferir, apaga-a.`,
+    apagar: "As cópias a mais são apagadas de vez: não vão para a Reciclagem.",
+  };
+  function pintarAcao() {
+    for (const b of $("modos-dup").children) b.setAttribute("aria-checked", String(b.dataset.acao === acao));
+    $("dica-acao-dup").textContent = DICAS[acao];
+    pintarBotao();
+  }
+  for (const b of $("modos-dup").children) {
+    b.addEventListener("click", () => { if (!ocupado) { acao = b.dataset.acao; pintarAcao(); } });
+  }
+
+  // --------------------------------------------------------------- Ler a pasta
+  // Nós { nome, pasta, handle, obter(), filhos() }, como no Proc-Gifts
+  function noDeHandle(h) {
+    return {
+      nome: h.name, pasta: h.kind === "directory", handle: h,
+      obter: () => h.getFile(),
+      filhos: async () => { const l = []; for await (const f of h.values()) l.push(noDeHandle(f)); return l; },
+    };
+  }
+  function lerEntradas(dir) {
+    return new Promise((ok, erro) => {
+      const leitor = dir.createReader(), todas = [];
+      const lote = () => leitor.readEntries(l => { if (!l.length) ok(todas); else { todas.push(...l); lote(); } }, erro);
+      lote();
+    });
+  }
+  function noDeEntrada(e) {
+    return { nome: e.name, pasta: e.isDirectory, handle: null,
+      obter: () => new Promise((ok, erro) => e.file(ok, erro)),
+      filhos: async () => (await lerEntradas(e)).map(noDeEntrada) };
+  }
+
+  // PDFs da pasta e das subpastas (até NIVEIS), sem a _Duplicados
+  async function listar(no, partes, lista, nivel = 0) {
+    for (const f of await no.filhos()) {
+      if (f.pasta) {
+        if (nivel === 0 && f.nome === D.PASTA_DUPLICADOS) continue;
+        if (nivel < D.NIVEIS) await listar(f, [...partes, f.nome], lista, nivel + 1);
+      } else if (/\.pdf$/i.test(f.nome)) {
+        lista.push({ nome: f.nome, partes, dir: partes.join("/"), caminho: [...partes, f.nome].join("/"),
+          pasta: partes.length ? partes[partes.length - 1] : origem.nome, obter: f.obter, dirHandle: no.handle });
+      }
+    }
+    return lista;
+  }
+
+  function definirOrigem(o) {
+    origem = o;
+    analise = null;
+    ultimaLimpeza = null;
+    $("nome-pasta-dup").textContent = o.nome;
+    $("chip-dup").classList.add("escolhida");
+    $("n-pdfs-dup").hidden = true;
+    const soLeitura = !o.handle;
+    $("acesso-dup").hidden = !soLeitura;
+    $("acesso-dup").dataset.tipo = soLeitura ? "aviso" : "";
+    $("acesso-dup").textContent = soLeitura
+      ? (comAcesso ? "Só leitura: para poder limpar, usa Escolher pasta…" : "Só leitura: para poder limpar, abre a app diretamente no Chrome ou no Edge")
+      : "";
+    $("btn-reanalisar-dup").hidden = false;
+    analisar();
+  }
+
+  $("btn-pasta-dup").addEventListener("click", async () => {
+    if (ocupado) return;
+    if (!comAcesso) { $("input-pasta-dup").click(); return; }
+    let dir;
+    try {
+      // Só leitura ao escolher; a autorização para alterar pede-se ao carregar em Limpar
+      dir = await window.showDirectoryPicker({ id: "proc-batches-duplicados", mode: "read" });
+    } catch (erro) {
+      if (erro && erro.name === "AbortError") return; // o operador fechou a janela
+      $("input-pasta-dup").click();
+      return;
+    }
+    definirOrigem({ nome: dir.name, no: noDeHandle(dir), handle: dir });
+  });
+
+  // Seletor antigo (sem acesso para alterar): as pastas saem do webkitRelativePath
+  $("input-pasta-dup").addEventListener("change", e => {
+    const todos = [...e.target.files];
+    e.target.value = "";
+    if (!todos.length) return;
+    const nome = (todos[0].webkitRelativePath || "").split("/")[0] || "Pasta";
+    const ficheiros = [];
+    for (const f of todos) {
+      const seg = (f.webkitRelativePath || f.name).split("/");
+      const partes = seg.slice(1, -1);
+      if (partes[0] === D.PASTA_DUPLICADOS || partes.length > D.NIVEIS || !/\.pdf$/i.test(f.name)) continue;
+      ficheiros.push({ nome: f.name, partes, dir: partes.join("/"), caminho: [...partes, f.name].join("/"),
+        pasta: partes.length ? partes[partes.length - 1] : nome, obter: async () => f, dirHandle: null });
+    }
+    definirOrigem({ nome, ficheiros });
+  });
+
+  $("btn-reanalisar-dup").addEventListener("click", () => { ultimaLimpeza = null; analisar(); });
+
+  // Arrastar uma pasta para a janela (só neste modo)
+  let arrastos = 0;
+  addEventListener("dragenter", e => { if (ocupado || !naVista()) return; e.preventDefault(); arrastos++; $("largar").hidden = false; });
+  addEventListener("dragleave", () => { if (!naVista()) return; if (--arrastos <= 0) { arrastos = 0; $("largar").hidden = true; } });
+  addEventListener("drop", async e => {
+    if (!naVista()) return;
+    e.preventDefault();
+    arrastos = 0;
+    $("largar").hidden = true;
+    if (ocupado) return;
+    // Os pedidos têm de ser feitos já, antes de qualquer await
+    const itens = [...e.dataTransfer.items].filter(i => i.kind === "file");
+    const pedidoHandle = itens.length === 1 && itens[0].getAsFileSystemHandle ? itens[0].getAsFileSystemHandle() : null;
+    const entrada = itens.length === 1 && itens[0].webkitGetAsEntry ? itens[0].webkitGetAsEntry() : null;
+    let h = null;
+    try { h = await pedidoHandle; } catch (erro) {}
+    if (h && h.kind === "directory" && !emMolduraExterna) definirOrigem({ nome: h.name, no: noDeHandle(h), handle: h });
+    else if (entrada && entrada.isDirectory) definirOrigem({ nome: entrada.name, no: noDeEntrada(entrada), handle: null });
+    else estado("Larga uma pasta (só uma).", "erro");
+  });
+
+  // --------------------------------------------------------------- Analisar
+  async function resumo(buf) {
+    if (crypto.subtle) {
+      const h = new Uint8Array(await crypto.subtle.digest("SHA-256", buf));
+      return [...h].map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+    // Sem crypto.subtle (página fora de https): FNV-1a de 2 x 32 bits. Antes de mexer em qualquer
+    // ficheiro compara-se tudo byte a byte, por isso aqui basta separar os candidatos.
+    const b = new Uint8Array(buf);
+    let h1 = 0x811c9dc5, h2 = 0x01000193 ^ b.length;
+    for (let i = 0; i < b.length; i++) {
+      h1 = Math.imul(h1 ^ b[i], 0x01000193);
+      h2 = Math.imul(h2 ^ b[i], 0x01000193) ^ (h2 >>> 7);
+    }
+    return `fnv:${b.length}:${(h1 >>> 0).toString(16)}${(h2 >>> 0).toString(16)}`;
+  }
+
+  async function textoDoPdf(ficheiro) {
+    if (!window.pdfjsLib) return "";
+    let pdf;
+    try {
+      const dados = new Uint8Array(await ficheiro.arrayBuffer());
+      pdf = await pdfjsLib.getDocument({ data: dados, isEvalSupported: false, disableFontFace: true, verbosity: 0 }).promise;
+      let texto = "";
+      for (let n = 1; n <= pdf.numPages; n++) {
+        const conteudo = await (await pdf.getPage(n)).getTextContent();
+        for (const item of conteudo.items) texto += item.str + (item.hasEOL ? "\n" : " ");
+        texto += "\n";
+      }
+      return texto;
+    } catch (erro) {
+      return "";
+    } finally {
+      if (pdf) pdf.destroy();
+    }
+  }
+
+  const ORDEM_ESTADO = { rever: 0, aviso: 1, ok: 2, nada: 3 };
+  function estadoGrupo(g) {
+    if (g.manter === null) return g.ignorado ? "nada" : "rever";
+    return g.aviso ? "aviso" : "ok";
+  }
+
+  async function analisar() {
+    if (!origem || ocupado) return;
+    analise = null;
+    setOcupado(true);
+    $("lista-dup").replaceChildren();
+    $("stats-dup").hidden = true;
+    $("vazio-dup").hidden = true;
+    barra.iniciar("A ler a pasta…");
+    estado("A ler a pasta…", "ativo");
+    try {
+      const lista = origem.no ? await listar(origem.no, [], []) : origem.ficheiros.map(f => ({ ...f }));
+      const pastas = new Set(lista.map(f => f.dir)).size;
+      $("n-pdfs-dup").textContent = `${fmt(lista.length)} PDF${plural(lista.length, "", "s")} em ${pastas} pasta${plural(pastas, "", "s")}`;
+      $("n-pdfs-dup").hidden = false;
+
+      // Só podem ser iguais PDFs com o mesmo tamanho: só esses se leem por inteiro
+      for (const [i, f] of lista.entries()) {
+        if (i % 25 === 0) barra.fase(`A ver tamanhos · ${fmt(i + 1)} de ${fmt(lista.length)} PDFs`);
+        f.tamanho = (await f.obter()).size;
+      }
+      const porTamanho = new Map();
+      for (const f of lista) porTamanho.set(f.tamanho, (porTamanho.get(f.tamanho) ?? 0) + 1);
+      const candidatos = lista.filter(f => porTamanho.get(f.tamanho) > 1);
+      for (const [i, f] of candidatos.entries()) {
+        barra.atualizar(i / candidatos.length, `A comparar · ${fmt(i + 1)} de ${fmt(candidatos.length)} PDFs · ${f.caminho}`);
+        f.hash = await resumo(await (await f.obter()).arrayBuffer());
+      }
+
+      const { grupos, nomesIguais } = D.agrupar(lista);
+      for (const [k, g] of grupos.entries()) {
+        barra.atualizar(k / grupos.length, `A ler etiquetas · ${fmt(k + 1)} de ${fmt(grupos.length)} · ${g.copias[0].nome}`);
+        const texto = await textoDoPdf(await g.copias[0].obter());
+        g.etiqueta = texto.trim() ? D.lerEtiqueta(texto) : null;
+        Object.assign(g, D.decidir(g.copias, g.etiqueta));
+        g.ignorado = false;
+      }
+      // Primeiro os que precisam de atenção (a ordem não muda ao escolher, para nada saltar no ecrã)
+      grupos.sort((a, b) => ORDEM_ESTADO[estadoGrupo(a)] - ORDEM_ESTADO[estadoGrupo(b)]);
+      analise = { lista, grupos, nomesIguais };
+      mostrar();
+      const n = grupos.length;
+      barra.concluir(true, n ? `${n} PDF${plural(n, "", "s")} repetido${plural(n, "", "s")}` : "Nenhum PDF repetido");
+      if (!ultimaLimpeza) {
+        estado(n ? `Concluído: ${n} PDF${plural(n, "", "s")} repetido${plural(n, "", "s")}.` : "Concluído: nenhum PDF repetido.", "ok");
+      }
+    } catch (erro) {
+      barra.concluir(false, "Não foi possível ler a pasta");
+      estado(`Erro ao ler a pasta: ${erro.message || erro}`, "erro");
+      $("vazio-dup").textContent = "Não foi possível ler a pasta.";
+      $("vazio-dup").hidden = false;
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  // --------------------------------------------------------------- Mostrar
+  const aSair = () => analise.grupos.filter(g => g.manter !== null)
+    .flatMap(g => g.copias.filter((_, i) => i !== g.manter).map(c => ({ c, fica: g.copias[g.manter] })));
+
+  function pintarBotao() {
+    const b = $("btn-limpar-dup");
+    const n = analise ? aSair().length : 0;
+    b.disabled = ocupado || !n || !origem?.handle;
+    b.textContent = ocupado && analise ? b.textContent
+      : n ? `${acao === "mover" ? "Mover" : "Apagar"} ${fmt(n)} cópia${plural(n, "", "s")}` : "Limpar duplicados";
+  }
+
+  function pintarResumo() {
+    const g = analise.grupos;
+    $("stat-dup-pdfs").textContent = fmt(analise.lista.length);
+    $("stat-dup-grupos").textContent = fmt(g.length);
+    $("stat-dup-sai").textContent = fmt(aSair().length);
+    $("stat-dup-rever").textContent = fmt(g.filter(x => estadoGrupo(x) === "rever").length);
+    $("stats-dup").hidden = false;
+    const tab = $("pastas-dup-linhas");
+    if (tab) tab.replaceChildren(...linhasPastas());
+    pintarBotao();
+  }
+
+  function linhasPastas() {
+    const sai = new Set(aSair().map(x => x.c.caminho));
+    const cabeca = el("div", { className: "cabeca" }, el("span", { textContent: "Pasta" }),
+      el("span", { className: "num", textContent: "Agora" }), el("span", { className: "num", textContent: "Saem" }),
+      el("span", { className: "num", textContent: "Ficam" }));
+    return [cabeca, ...D.resumoPastas(analise.lista, sai, origem.nome).map(p => el("div", {},
+      el("span", { className: "nome", textContent: p.pasta }),
+      el("span", { className: "num", textContent: fmt(p.antes) }),
+      el("span", { className: `num${p.sai ? " sai" : ""}`, textContent: p.sai ? `−${fmt(p.sai)}` : "—" }),
+      el("span", { className: `num ${p.depois ? "fica" : "vazia"}`, textContent: p.depois ? fmt(p.depois) : "0 · vazia" })))];
+  }
+
+  function cardGrupo(g) {
+    const est = estadoGrupo(g);
+    const n = g.copias.length;
+    const nomesDiferentes = new Set(g.copias.map(c => c.nome)).size > 1;
+    const id = D.idDoNome(g.copias[0].nome);
+    const textoEstado = { ok: `${n - 1} cópia${plural(n - 1, "", "s")} a mais`, aviso: "Confirma o papel", rever: "Por decidir", nada: "Não mexer" }[est];
+    const card = el("section", { className: "card dup" },
+      el("div", { className: "dup-topo" },
+        id && el("span", { className: "pill", textContent: id }),
+        el("span", { className: "nome", textContent: g.copias[0].nome }),
+        el("span", { className: "estado-grupo", textContent: textoEstado })),
+      el("div", { className: "copias" }, ...g.copias.map((c, i) => {
+        const fica = g.manter === i, sai = g.manter !== null && !fica;
+        const b = el("button", { type: "button", className: "copia", disabled: ocupado,
+          title: fica ? "Esta cópia fica" : "Clica para ficar com esta cópia" },
+          el("span", { className: "onde" },
+            el("b", { textContent: c.dir || origem.nome }),
+            nomesDiferentes && el("small", { textContent: c.nome })),
+          el("em", { textContent: fica ? "Fica" : sai ? (acao === "mover" ? "Sai" : "Apaga-se") : "—" }));
+        b.dataset.acao = fica ? "fica" : sai ? "sai" : "nada";
+        b.setAttribute("aria-pressed", String(fica));
+        b.addEventListener("click", () => { if (ocupado) return; g.manter = i; g.ignorado = false; trocar(); });
+        return b;
+      })),
+      el("div", { className: `dup-nota${est === "rever" ? " aviso" : ""}`, textContent: g.motivo }),
+      g.aviso && g.manter !== null && el("div", { className: "dup-nota aviso", textContent: g.aviso }),
+      g.manter !== null && el("button", { className: "link", type: "button", textContent: "Não mexer neste" }));
+    card.dataset.estado = est;
+    card.querySelector(".link")?.addEventListener("click", () => { if (ocupado) return; g.manter = null; g.ignorado = true; trocar(); });
+    function trocar() { card.replaceWith(cardGrupo(g)); pintarResumo(); }
+    return card;
+  }
+
+  function mostrar() {
+    const lista = $("lista-dup");
+    lista.replaceChildren();
+    if (ultimaLimpeza) lista.append(cardLimpeza(ultimaLimpeza));
+    pintarResumo();
+    const { grupos, nomesIguais } = analise;
+    if (grupos.length) {
+      lista.append(el("section", { className: "card pastas-dup" },
+        el("div", { className: "titulo-card", textContent: "Pastas" }),
+        el("div", { className: "linhas-pastas", id: "pastas-dup-linhas" }, ...linhasPastas())));
+    }
+    if (nomesIguais.length) {
+      const itens = nomesIguais.flatMap(x => x.copias.map(c => el("div", {}, el("span", { textContent: c.caminho }))));
+      lista.append(el("section", { className: "card nomes-dup" },
+        el("div", { className: "aviso-titulo", textContent: "Mesmo nome, conteúdo diferente" }),
+        el("p", { textContent: "Estes PDFs têm o mesmo nome noutra pasta, mas não são iguais. Não se mexe neles: confirma à mão." }),
+        el("div", { className: "ficheiros" }, ...itens)));
+    }
+    for (const g of grupos) lista.append(cardGrupo(g));
+    $("vazio-dup").textContent = "Nenhum PDF repetido nesta pasta ✓";
+    $("vazio-dup").hidden = grupos.length > 0 || nomesIguais.length > 0;
+  }
+
+  function cardLimpeza({ feitos, falhas, acao: a }) {
+    const n = feitos.length;
+    const verbo = a === "mover" ? `movido${plural(n, "", "s")} para ${D.PASTA_DUPLICADOS}` : `apagado${plural(n, "", "s")}`;
+    return el("section", { className: `card resultado-dup${falhas.length ? " erro" : ""}` },
+      el("div", { className: "titulo-resultado", textContent: `${fmt(n)} PDF${plural(n, "", "s")} ${verbo}` }),
+      a === "mover" && n > 0 && el("p", { textContent: `Estão em ${origem.nome}/${D.PASTA_DUPLICADOS}, com as mesmas subpastas. Depois de conferir, apaga essa pasta.` }),
+      falhas.length > 0 && el("p", { textContent: `${falhas.length} não ${plural(falhas.length, "foi mexido", "foram mexidos")}:` }),
+      falhas.length > 0 && el("div", { className: "ficheiros" }, ...falhas.map(f => el("div", {}, el("span", { textContent: f })))));
+  }
+
+  // --------------------------------------------------------------- Limpar
+  function perguntar(titulo, texto, sim) {
+    const d = $("dialogo-dup");
+    $("dialogo-dup-titulo").textContent = titulo;
+    $("dialogo-dup-texto").textContent = texto;
+    $("dialogo-dup-sim").textContent = sim;
+    d.returnValue = "";
+    d.showModal();
+    $("dialogo-dup-nao").focus();
+    return new Promise(ok => d.addEventListener("close", () => ok(d.returnValue === "sim"), { once: true }));
+  }
+
+  async function autorizar(h) {
+    if (typeof h.queryPermission !== "function") return true;
+    if ((await h.queryPermission({ mode: "readwrite" })) === "granted") return true;
+    return (await h.requestPermission({ mode: "readwrite" })) === "granted";
+  }
+
+  async function nomeLivre(dir, nome) {
+    for (let n = 1; ; n++) {
+      const tentativa = n === 1 ? nome : D.nomeAlternativo(nome, n);
+      try { await dir.getFileHandle(tentativa); } catch (e) { if (e.name === "NotFoundError") return tentativa; throw e; }
+    }
+  }
+
+  const bytes = async c => new Uint8Array(await (await c.obter()).arrayBuffer());
+
+  $("btn-limpar-dup").addEventListener("click", async () => {
+    if (ocupado || !analise || !origem?.handle) return;
+    const acoes = aSair();
+    const n = acoes.length;
+    if (!n) return;
+    const avisos = analise.grupos.filter(g => g.manter !== null && g.aviso).length;
+    const porDecidir = analise.grupos.filter(g => estadoGrupo(g) === "rever").length;
+    const partes = [acao === "mover"
+      ? `Vão sair ${fmt(n)} PDF${plural(n, "", "s")}, para a pasta ${D.PASTA_DUPLICADOS} dentro de "${origem.nome}".`
+      : `Vão ser apagados de vez ${fmt(n)} PDF${plural(n, "", "s")} (não vão para a Reciclagem).`,
+    "Antes de cada um, a app confirma que é igual, byte a byte, à cópia que fica."];
+    if (avisos) partes.push(`Atenção: em ${avisos} PDF${plural(avisos, "", "s")} a lista da encomenda indica outro papel (ver "Confirma o papel").`);
+    if (porDecidir) partes.push(`${porDecidir} PDF${plural(porDecidir, "", "s")} por decidir ficam como estão.`);
+    if (!(await perguntar(acao === "mover" ? "Mover as cópias a mais?" : "Apagar as cópias a mais?",
+      partes.join("\n\n"), acao === "mover" ? `Mover ${fmt(n)}` : `Apagar ${fmt(n)}`))) return;
+
+    let autorizado = false;
+    try { autorizado = await autorizar(origem.handle); } catch (e) {}
+    if (!autorizado) { estado("Sem autorização para alterar a pasta: nada foi mexido.", "erro"); return; }
+
+    setOcupado(true);
+    barra.iniciar("A preparar…");
+    estado(acao === "mover" ? "A mover as cópias…" : "A apagar as cópias…", "ativo");
+    const feitos = [], falhas = [];
+    for (const [i, { c, fica }] of acoes.entries()) {
+      barra.atualizar(i / n, `${fmt(i + 1)} de ${fmt(n)} · ${c.caminho}`);
+      try {
+        const [a, b] = await Promise.all([bytes(c), bytes(fica)]);
+        if (!D.iguais(a, b)) throw new Error(`já não é igual a ${fica.caminho}`);
+        if (acao === "mover") {
+          let dir = origem.handle;
+          for (const p of [D.PASTA_DUPLICADOS, ...c.partes]) dir = await dir.getDirectoryHandle(p, { create: true });
+          const fh = await dir.getFileHandle(await nomeLivre(dir, c.nome), { create: true });
+          const w = await fh.createWritable();
+          await w.write(a);
+          await w.close();
+          if (!D.iguais(new Uint8Array(await (await fh.getFile()).arrayBuffer()), a)) {
+            throw new Error(`a cópia em ${D.PASTA_DUPLICADOS} não ficou igual (o original não foi apagado)`);
+          }
+        }
+        await c.dirHandle.removeEntry(c.nome);
+        feitos.push(c.caminho);
+      } catch (erro) {
+        falhas.push(`${c.caminho}: ${erro.name === "NotFoundError" ? "já não existe" : erro.message || erro}`);
+      }
+    }
+    barra.concluir(!falhas.length, falhas.length ? `${falhas.length} PDF${plural(falhas.length, "", "s")} por mexer` : undefined);
+    setOcupado(false);
+    ultimaLimpeza = { feitos, falhas, acao };
+    const verbo = acao === "mover" ? "movido" : "apagado";
+    // Lê a pasta de novo: o que se vê a seguir é o estado real da pasta
+    await analisar();
+    estado(`${fmt(feitos.length)} PDF${plural(feitos.length, "", "s")} ${verbo}${plural(feitos.length, "", "s")}` +
+      (falhas.length ? `, ${falhas.length} com erro.` : "."), falhas.length ? "erro" : "ok");
+  });
+
+  function setOcupado(sim) {
+    ocupado = sim;
+    $("btn-pasta-dup").disabled = sim;
+    $("btn-reanalisar-dup").disabled = sim;
+    for (const b of $("modos-dup").children) b.disabled = sim;
+    for (const b of document.querySelectorAll("#lista-dup .copia, #lista-dup .dup .link")) b.disabled = sim;
+    pintarBotao();
+  }
+
+  pintarAcao();
 })();
 </script>
