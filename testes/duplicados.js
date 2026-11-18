@@ -108,6 +108,21 @@ const { grupos, nomesIguais } = D.agrupar([
 igual(grupos.map(g => g.copias.map(c => c.caminho)), [["CA Lustre/a.pdf", "DPII Lustre/a.pdf"], ["CA Lustre/outro.pdf", "DPII Lustre/d.pdf"]], "grupos por conteúdo");
 igual(nomesIguais.map(x => x.nome), ["b.pdf"], "mesmo nome com conteúdo diferente");
 
+// ---------------------------------------------------------------- fotos 10x10 (Frontier)
+const dez = (...produtos) => [
+  "Encomenda  6538935_1529305 - 7/8",
+  "Data entrada:  2026-11-17  30  Printing 10x10 Lustre",   // lista do fundo: não conta
+  "Item  Produtos  Acabamentos  Qtd",
+  ...produtos.flatMap(([tam, q]) => [`2952913  Impressão Fotográfica - Impressões - ${tam}  ${q}`, "Tipo de Papel:  Lustre"]),
+  "Ficheiros de:  6538935_1529305  - 10x10",
+].join("\n");
+igual(D.fotos10x10(dez(["10x10", 30])), { id: "6538935_1529305", itens: 1, qtd: 30 }, "10x10 com 30 fotos (formato real)");
+igual(D.fotos10x10(dez(["10x15", 12])), { id: "6538935_1529305", itens: 0, qtd: 0 }, "10x15: não é 10x10 (e a lista do fundo não conta)");
+igual(D.fotos10x10(dez(["10x15", 12], ["10x10", 5], ["10x10", 7])), { id: "6538935_1529305", itens: 2, qtd: 12 }, "tabela com vários itens: só os 10x10");
+igual(D.fotos10x10(dez(["10x10", ""])), { id: "6538935_1529305", itens: 1, qtd: 0 }, "sem quantidade: encontra, sem somar o 10 do 10x10");
+igual(D.fotos10x10(dez(["10x100", 4])), { id: "6538935_1529305", itens: 0, qtd: 0 }, "10x100 não é 10x10");
+igual(D.fotos10x10("Encomenda  1_2\n30  Printing 10x10 Lustre").itens, 0, "sem tabela: só a lista do fundo não conta");
+
 // ---------------------------------------------------------------- pastas e nomes
 const lista = [f("CA Lustre", "a.pdf"), f("CA Lustre", "b.pdf"), f("Crystal_Brilho", "a.pdf"), f("", "solto.pdf")];
 igual(D.resumoPastas(lista, new Set(["CA Lustre/a.pdf", "Crystal_Brilho/a.pdf"]), "00"),
