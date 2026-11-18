@@ -342,7 +342,7 @@
   .nomes-dup { padding: 14px 18px; border-color: var(--aviso); }
   .nomes-dup p { margin: 6px 0 8px; color: var(--texto-sec); }
 
-  /* Pergunta antes de mexer na pasta (só avisos, nunca para sucesso) */
+  /* Pergunta antes de mexer na pasta, e o popup de informação das fotos 10x10 */
   #dialogo-dup {
     width: min(520px, calc(100vw - 32px)); padding: 0; border-radius: 10px;
     background: var(--sidebar); color: var(--texto); border: 1px solid var(--borda);
@@ -352,6 +352,7 @@
   #dialogo-dup form { padding: 20px 20px 16px; }
   #dialogo-dup h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
   #dialogo-dup h3::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--aviso); }
+  #dialogo-dup[data-tipo="info"] h3::before { background: var(--accent); }
   #dialogo-dup-texto { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 60vh; overflow-y: auto; }
   .dialogo-botoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
   .dialogo-botoes .btn, .dialogo-botoes .btn-principal { width: auto; min-width: 96px; padding: 0 16px; }
@@ -407,7 +408,7 @@
 
     <div class="rodape">
       <button class="btn-principal" id="btn-processar" type="button">Processar PDFs</button>
-      <div class="versao">Versão web 1.4.1</div>
+      <div class="versao">Versão web 1.4.2</div>
     </div>
     </div>
 
@@ -435,7 +436,7 @@
 
       <div class="rodape">
         <button class="btn-principal" id="btn-atualizar" type="button">Atualizar</button>
-        <div class="versao">Versão web 1.4.1 · F5 atualiza</div>
+        <div class="versao">Versão web 1.4.2 · F5 atualiza</div>
       </div>
     </div>
 
@@ -469,7 +470,7 @@
 
       <div class="rodape">
         <button class="btn-principal" id="btn-limpar-dup" type="button" disabled>Limpar duplicados</button>
-        <div class="versao">Versão web 1.4.1</div>
+        <div class="versao">Versão web 1.4.2</div>
       </div>
     </div>
   </aside>
@@ -1892,6 +1893,29 @@ const Duplicados = (() => {
       .sort((a, b) => ordemDaPasta(a.pasta, b.pasta));
   }
 
+  // Fotos 10x10 (vão para a Frontier): só as linhas de produto da tabela do item, entre o cabeçalho
+  // "Item  Produtos  Acabamentos  Qtd" e o primeiro "Ficheiros de" ("2952913  Impressão Fotográfica -
+  // Impressões - 10x10  30", com a quantidade no fim). A lista do fundo da etiqueta ("Printing 10x10
+  // Lustre") não conta: tem os itens de toda a encomenda, não só os desta etiqueta.
+  // linhas: como em lerEtiqueta -> { id: "6538935_1529305" (ou ""), itens: n.º de linhas 10x10, qtd: soma das quantidades }
+  function fotos10x10(linhas) {
+    const ls = String(linhas).split("\n");
+    const id = ls.map(l => /Encomenda\s+(\d+_\d+)/.exec(l)).find(Boolean)?.[1] ?? "";
+    const ini = ls.findIndex(l => /^\s*Item\s+Produtos/i.test(l));
+    let itens = 0, qtd = 0;
+    if (ini >= 0) {
+      for (const l of ls.slice(ini + 1)) {
+        if (/^\s*Ficheiros de/i.test(l)) break;
+        const m = /^\s*\d+\s.*-\s*10\s*[x×]\s*10\b(.*)$/i.exec(l);
+        if (!m) continue;
+        itens++;
+        const q = /(\d+)\s*$/.exec(m[1]); // a quantidade vem depois do tamanho (nunca o "10" do 10x10)
+        if (q) qtd += Number(q[1]);
+      }
+    }
+    return { id, itens, qtd };
+  }
+
   function iguais(a, b) {
     if (a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
@@ -1905,7 +1929,7 @@ const Duplicados = (() => {
   }
 
   return { PASTA_DUPLICADOS, NIVEIS, papeisNoTexto, papelDaPasta, compativeis, lerEtiqueta, ordemDaPasta, idDoNome,
-    preferida, decidir, agrupar, resumoPastas, iguais, nomeAlternativo };
+    preferida, decidir, agrupar, resumoPastas, fotos10x10, iguais, nomeAlternativo };
 })();
 </script>
 
@@ -2098,6 +2122,9 @@ const Duplicados = (() => {
           if (l) l.pedacos.push(p); else daPagina.push({ y: p.y, pedacos: [p] });
         }
         for (const l of daPagina) linhas.push(l.pedacos.sort((a, b) => a.x - b.x).map(p => p.s.trim()).join("  "));
+        // A tabela do item (papel e 10x10) acaba antes do primeiro "Ficheiros de": as páginas seguintes
+        // só têm fotos, e lê-las tornava a análise muito mais lenta
+        if (daPagina.some(l => /^\s*Ficheiros de/i.test(l.pedacos[0]?.s ?? ""))) break;
       }
       return linhas.join("\n");
     } catch (erro) {
@@ -2115,8 +2142,10 @@ const Duplicados = (() => {
     return g.fica.size < g.copias.length ? "ok" : "certo";
   }
 
-  async function analisar() {
+  // avisar10x10: no fim, popup com as fotos 10x10 (Frontier). Não se repete na leitura que se segue ao Limpar.
+  async function analisar({ avisar10x10 = true } = {}) {
     if (!origem || ocupado) return;
+    let fotos10 = [];
     analise = null;
     setOcupado(true);
     $("lista-dup").replaceChildren();
@@ -2143,10 +2172,26 @@ const Duplicados = (() => {
         f.hash = await resumo(await (await f.obter()).arrayBuffer());
       }
 
+      // Todas as etiquetas (cada conteúdo uma vez): o papel das repetidas e as fotos 10x10
+      const chave = f => f.hash ?? `só:${f.caminho}`;
+      const unicos = [...new Map(lista.map(f => [chave(f), f])).values()];
+      const textos = new Map();
+      for (const [i, f] of unicos.entries()) {
+        barra.atualizar(i / unicos.length, `A ler etiquetas · ${fmt(i + 1)} de ${fmt(unicos.length)} PDFs · ${f.caminho}`);
+        textos.set(chave(f), await textoDoPdf(await f.obter()));
+      }
+      const porId = new Map();
+      for (const f of unicos) {
+        const r = D.fotos10x10(textos.get(chave(f)));
+        if (!r.itens) continue;
+        const id = r.id || f.nome.split("_").slice(0, 2).join("_");
+        if (!porId.has(id)) porId.set(id, { id, qtd: r.qtd });
+      }
+      fotos10 = [...porId.values()].sort((a, b) => D.ordemDaPasta(a.id, b.id));
+
       const { grupos, nomesIguais } = D.agrupar(lista);
-      for (const [k, g] of grupos.entries()) {
-        barra.atualizar(k / grupos.length, `A ler etiquetas · ${fmt(k + 1)} de ${fmt(grupos.length)} · ${g.copias[0].nome}`);
-        const texto = await textoDoPdf(await g.copias[0].obter());
+      for (const g of grupos) {
+        const texto = textos.get(chave(g.copias[0])) ?? "";
         g.etiqueta = texto.trim() ? D.lerEtiqueta(texto) : null;
         const d = D.decidir(g.copias, g.etiqueta);
         g.fica = d.fica && new Set(d.fica);
@@ -2167,8 +2212,14 @@ const Duplicados = (() => {
       estado(`Erro ao ler a pasta: ${erro.message || erro}`, "erro");
       $("vazio-dup").textContent = "Não foi possível ler a pasta.";
       $("vazio-dup").hidden = false;
+      fotos10 = [];
     } finally {
       setOcupado(false);
+    }
+    // Só informação (não muda nada na análise nem na limpeza)
+    if (avisar10x10 && fotos10.length) {
+      const linhas = fotos10.map(f => `Encomenda ${f.id}${f.qtd ? ` (${fmt(f.qtd)} foto${plural(f.qtd, "", "s")})` : ""}`);
+      informar("Fotos 10x10 encontradas", `Frontier:\n\n${linhas.join("\n")}`);
     }
   }
 
@@ -2287,6 +2338,8 @@ const Duplicados = (() => {
   // --------------------------------------------------------------- Limpar
   function perguntar(titulo, texto, sim) {
     const d = $("dialogo-dup");
+    d.dataset.tipo = "";
+    $("dialogo-dup-nao").hidden = false;
     $("dialogo-dup-titulo").textContent = titulo;
     $("dialogo-dup-texto").textContent = texto;
     $("dialogo-dup-sim").textContent = sim;
@@ -2294,6 +2347,20 @@ const Duplicados = (() => {
     d.showModal();
     $("dialogo-dup-nao").focus();
     return new Promise(ok => d.addEventListener("close", () => ok(d.returnValue === "sim"), { once: true }));
+  }
+
+  // Popup só de informação: um botão OK
+  function informar(titulo, texto) {
+    const d = $("dialogo-dup");
+    if (d.open) return;
+    d.dataset.tipo = "info";
+    $("dialogo-dup-titulo").textContent = titulo;
+    $("dialogo-dup-texto").textContent = texto;
+    $("dialogo-dup-sim").textContent = "OK";
+    $("dialogo-dup-nao").hidden = true;
+    d.returnValue = "";
+    d.showModal();
+    $("dialogo-dup-sim").focus();
   }
 
   async function autorizar(h) {
@@ -2360,7 +2427,7 @@ const Duplicados = (() => {
     ultimaLimpeza = { feitos, falhas, acao };
     const verbo = acao === "mover" ? "movido" : "apagado";
     // Lê a pasta de novo: o que se vê a seguir é o estado real da pasta
-    await analisar();
+    await analisar({ avisar10x10: false });
     estado(`${fmt(feitos.length)} PDF${plural(feitos.length, "", "s")} ${verbo}${plural(feitos.length, "", "s")}` +
       (falhas.length ? `, ${falhas.length} com erro.` : "."), falhas.length ? "erro" : "ok");
   });

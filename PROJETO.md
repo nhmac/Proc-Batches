@@ -4,7 +4,7 @@ Agrupa os PDFs de etiquetas em batches até ao limite de quantidade.
 
 - **App:** https://nhmac.github.io/Proc-Batches/ (Chrome, Edge ou Brave; pode ser instalada como app)
 - **Repositório:** https://github.com/nhmac/Proc-Batches (código-fonte no `main`; o site é gerado e publicado pelo GitHub Actions)
-- **Versão atual:** web 1.4.1 (modo Duplicados; opção "Apagar" desligada)
+- **Versão atual:** web 1.4.2 (modo Duplicados: popup das fotos 10x10; opção "Apagar" desligada)
 
 Os PDFs são lidos no browser e não são enviados para lado nenhum.
 
@@ -109,6 +109,12 @@ A versão Python não tem este modo.
   subpastas, e confirma a cópia antes de apagar o original). A opção "Apagar" (de vez) está no código mas
   desligada desde a 1.4.1, a pedido do utilizador (`data-desligado` no botão, como o Express na 1.3.4). Antes de cada
   ficheiro confirma que é igual, byte a byte, à cópia que fica. No fim lê a pasta de novo.
+- **Fotos 10x10** (desde a 1.4.2, só informação): no fim de cada análise, se alguma etiqueta tiver um
+  produto 10x10 na tabela do item, aparece o popup "Fotos 10x10 encontradas" › Frontier › "Encomenda
+  6538935_1529305 (30 fotos)" (`fotos10x10`; a lista do fundo da etiqueta não conta). Não muda nada na
+  análise nem na limpeza, e não aparece na leitura que se segue ao Limpar. Por isso a análise lê todas
+  as etiquetas (cada conteúdo uma vez), não só as repetidas; o tempo ficou igual ao da 1.4.1 nos testes.
+  Cada PDF só se lê até à página do primeiro "Ficheiros de" (a tabela do item acaba aí).
 - A pasta escolhe-se só para leitura; a autorização para alterar pede-se ao carregar em Limpar. Só funciona
   no Chrome/Edge com "Escolher pasta…" (ou ao arrastar a pasta). Sem isso, a análise faz-se mas o Limpar
   fica desligado. A pasta `_Duplicados` é ignorada nas análises seguintes.
