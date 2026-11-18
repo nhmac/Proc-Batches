@@ -93,15 +93,18 @@ A versão Python não tem este modo.
 
 - **Repetido** = conteúdo igual byte a byte, com qualquer nome. Só se leem por inteiro os PDFs com
   tamanho repetido (SHA-256). PDFs com o mesmo nome e conteúdo diferente aparecem à parte e não se mexe neles.
-- **Que cópia fica:** a que está na pasta do papel do campo "Tipo de Papel" do item, na etiqueta
-  (`lerEtiqueta`). O papel da pasta tira-se do nome (`papelDaPasta`): família `CA`/`Crystal` ou `DPII` e
-  acabamento Lustre, Brilho/Glossy, Seda/Silk ou Mate. "Lustre" sem família (Schools) serve para as duas
-  famílias. Cópias na mesma pasta: fica a de nome original (`<encomenda>_<id>_label.pdf`).
-- **Por decidir** (o operador clica na cópia que fica): sem papel na etiqueta, nenhuma pasta do papel,
-  ou mais de uma pasta que serve. Também se pode pôr qualquer PDF em "Não mexer neste".
-- **Confirma o papel** (aviso, não bloqueia): quando nenhum papel da lista do fundo da etiqueta
-  ("Impressão 10x15 CA Lustre", …) bate certo com o do item. Essa lista tem todos os itens da encomenda,
-  por isso não decide nada.
+- **Que cópias ficam:** só conta a tabela do item (Item | Produtos | Acabamentos | Qtd): o valor de
+  cada "Tipo de Papel:" (`lerEtiqueta`). A lista do fundo da etiqueta ("Impressão 10x15 CA Lustre", …) e a
+  Plastificação não contam (indicação do utilizador, 2026-11-18). O texto lê-se em linhas visuais (pdf.js,
+  pedaços à mesma altura), para o valor sair na mesma linha que o rótulo. Fica uma cópia na pasta de cada
+  papel da tabela: uma tabela com vários itens de papéis diferentes tem o PDF, de propósito, numa pasta de
+  cada papel, e essas cópias ficam todas ("Ficam todas"). Saem as cópias em pastas de outros papéis.
+  O papel da pasta tira-se do nome (`papelDaPasta`): família `CA`/`Crystal` ou `DPII` e acabamento Lustre,
+  Brilho/Glossy, Seda/Silk ou Mate. "Lustre" sem família (Schools) serve para as duas famílias. Cópias na
+  mesma pasta: fica a de nome original (`<encomenda>_<id>_label.pdf`).
+- **Por decidir** (o operador clica nas cópias que ficam): sem Tipo de Papel na etiqueta, nenhuma pasta
+  desses papéis, ou mais de uma pasta para o mesmo papel. Clicar numa cópia troca entre fica e sai (fica
+  sempre pelo menos uma). Também se pode pôr qualquer PDF em "Não mexer neste".
 - **Limpar:** "Mover para _Duplicados" (por omissão; cria `_Duplicados` dentro da pasta escolhida, com as
   mesmas subpastas, e confirma a cópia antes de apagar o original) ou "Apagar" (de vez). Antes de cada
   ficheiro confirma que é igual, byte a byte, à cópia que fica. No fim lê a pasta de novo.
@@ -109,6 +112,6 @@ A versão Python não tem este modo.
   no Chrome/Edge com "Escolher pasta…" (ou ao arrastar a pasta). Sem isso, a análise faz-se mas o Limpar
   fica desligado. A pasta `_Duplicados` é ignorada nas análises seguintes.
 
-Testado (2026-11-18) com uma pasta "00" real de 232 PDFs: 25 repetidos, 27 cópias a mais (21 em
-`CA Lustre`, 6 em `Crystal_Brilho`), 15 com "Confirma o papel" (encomendas 6538763, 6537120 e
-6538883: item DPII Lustre, lista da encomenda CA Lustre). O resultado foi igual à limpeza feita à mão.
+Testado (2026-11-18) com uma pasta "00" real de 232 PDFs: o Tipo de Papel lê-se nas 232 etiquetas (um
+papel em cada); 25 repetidos, 27 cópias a mais (21 em `CA Lustre`, 6 em `Crystal_Brilho`). O resultado foi
+igual à limpeza feita à mão. Ainda sem exemplo real de uma tabela com vários papéis (só nos testes).

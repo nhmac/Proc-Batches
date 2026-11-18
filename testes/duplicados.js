@@ -1,7 +1,7 @@
 // Testes da lógica do modo Duplicados: node testes/duplicados.js (na raiz do repositório)
 // Extrai o <script id="logica-duplicados"> do web/autobatch.html, corre-o e confere:
 //   - papel das pastas e das etiquetas (texto como o pdf.js o devolve)
-//   - que cópia fica em cada caso (papel certo, mesma pasta, por decidir, aviso da lista da encomenda)
+//   - que cópias ficam (uma por papel da tabela, mesma pasta, por decidir)
 //   - agrupar por conteúdo e "mesmo nome, conteúdo diferente"
 //   - contagem por pasta e nomes em _Duplicados
 // Pára ao primeiro caso errado, com código de saída 1.
@@ -34,55 +34,61 @@ igual(pp("DPII_Seda"), "DPII Seda", "pasta DPII_Seda");
 igual(pp("Crystal_Brilho"), "CA Brilho", "pasta Crystal_Brilho (Crystal Archive)");
 igual(pp("00"), null, "pasta sem papel");
 
-// ---------------------------------------------------------------- etiquetas (texto do pdf.js, dados inventados)
-const etiqueta = (tipoDePapel, lista) => [
-  "6500001 ", "Encomenda   6500001_1500001 - 1/2 ", "Nome:   20x30_Teste ", "DreambooksPro Express v2.0 ",
-  "Item   Produtos   Acabamentos   Qtd ", "2900001   Impressão Fotográfica - Impressões - 20x30 ",
-  ...tipoDePapel, "Ficheiros de:   6500001_1500001   - 20x30 ", "foto_lustre.jpg *2600000001* Lote: ",
-  "WEB N∫ 6500001", "17.11.2026   Tipo: I - Impress„o ", "Cliente N∫ 100000001 ", "CLIENTE DE TESTE ",
-  ...lista.map(l => `Impress„o ${l}`), "2", "21 ", "01.Encomenda LFM Express N∫ 2600000001 1/1 ",
+// ---------------------------------------------------------------- etiquetas (linhas visuais do pdf.js, dados inventados)
+// A lista do fundo ("Impress„o 10x15 CA Lustre") e a Plastificação não contam: só o "Tipo de Papel:" da tabela.
+const etiqueta = (...itens) => [
+  "Data entrada:  2026-11-17  11  Impress„o 10x15 CA Lustre",
+  "12  Impress„o 30x40 Brilho",
+  "Nome:  20x30_Teste_lustre",
+  "Item  Produtos  Acabamentos  Qtd",
+  ...itens.flatMap(([papel, plast]) => [
+    "2900001  Impressão Fotográfica - Impressões - 20x30  10",
+    `Tipo de Papel:  ${papel}`,
+    ...(plast ? [`Plastificação:  ${plast}`] : []),
+  ]),
+  "Ficheiros de:  6500001_1500001  - 20x30",
+  "foto_mate.jpg  foto_brilho.jpg",
 ].join("\n");
-const papel = e => e.papel && `${e.papel.familia ?? "-"} ${e.papel.acabamento}`;
+const papeis = e => e.papeis.map(p => `${p.familia ?? "-"} ${p.acabamento}`);
 
-const e1 = D.lerEtiqueta(etiqueta(["Tipo de Papel: ", "Plastificação: ", "DPII Lustre", "Sem Plastificação", "10 "], ["10x15 CA Lustre", "10x15 CA Lustre"]));
-igual(papel(e1), "DPII Lustre", "item DPII Lustre (Tipo de Papel e Plastificação em linhas à parte)");
-igual(e1.conflito, true, "lista da encomenda só com CA Lustre: aviso");
+const e1 = D.lerEtiqueta(etiqueta(["DPII Lustre", "Sem Plastificação"]));
+igual(papeis(e1), ["DPII Lustre"], "item DPII Lustre (a lista do fundo diz CA Lustre e Brilho: não conta)");
+const e2 = D.lerEtiqueta(etiqueta(["CA Lustre"]));
+igual(papeis(e2), ["CA Lustre"], "item CA Lustre");
+const e3 = D.lerEtiqueta(etiqueta(["Lustre"]));
+igual(papeis(e3), ["- Lustre"], "item Schools: só Lustre");
+const e4 = D.lerEtiqueta(etiqueta(["DPII Glossy", "Sem Plastificação"]));
+igual(papeis(e4), ["DPII Brilho"], "item DPII Glossy");
+const e5 = D.lerEtiqueta(etiqueta(["DPII Silk"]));
+igual(papeis(e5), ["DPII Seda"], "item DPII Silk");
+igual(papeis(D.lerEtiqueta(etiqueta(["DPII Lustre", "Plastificação Mate"]))), ["DPII Lustre"], "Plastificação Mate não é papel");
+igual(papeis(D.lerEtiqueta(etiqueta(["DPII Lustre", "Brilho"]))), ["DPII Lustre"], "Plastificação Brilho não é papel");
+const e6 = D.lerEtiqueta(etiqueta(["DPII Lustre", "Sem Plastificação"], ["CA Lustre", "Sem Plastificação"], ["DPII Lustre"]));
+igual(papeis(e6), ["DPII Lustre", "CA Lustre"], "tabela com vários itens: dois papéis diferentes");
+igual(papeis(D.lerEtiqueta("texto sem campo de papel")), [], "etiqueta sem Tipo de Papel");
 
-const e2 = D.lerEtiqueta(etiqueta(["Tipo de Papel:   CA Lustre", "21 "], ["20x30 Lustre", "15x20 CA Lustre", "30x40 Brilho"]));
-igual(papel(e2), "CA Lustre", "item CA Lustre");
-igual(e2.conflito, false, "lista com CA Lustre: sem aviso");
-
-const e3 = D.lerEtiqueta(etiqueta(["Tipo de Papel:   Lustre", "57 ", "Observações: Escola - 1ºano "], ["15x20 Lustre Schools"]));
-igual(papel(e3), "- Lustre", "item Schools: só Lustre (a foto 'foto_lustre.jpg' fica de fora)");
-
-const e4 = D.lerEtiqueta(etiqueta(["Tipo de Papel: ", "Plastificação: ", "DPII Glossy", "Sem Plastificação", "2 "], ["10x15 Brilho acima de 100 Und.", "20x30 Brilho"]));
-igual(papel(e4), "DPII Brilho", "item DPII Glossy");
-igual(e4.conflito, false, "Brilho na lista serve para DPII Glossy");
-
-const e5 = D.lerEtiqueta(etiqueta(["Tipo de Papel:   DPII Silk", "3 "], ["15x20 Seda"]));
-igual(papel(e5), "DPII Seda", "item DPII Silk");
-
-const e6 = D.lerEtiqueta("texto sem campo de papel");
-igual(e6.papel, null, "etiqueta sem Tipo de Papel");
-
-// ---------------------------------------------------------------- que cópia fica
+// ---------------------------------------------------------------- que cópias ficam
 const copia = (dir, nome = "6500001_1500001_label.pdf") =>
   ({ nome, dir, pasta: dir.split("/").pop() || "00", caminho: dir ? `${dir}/${nome}` : nome });
-const fica = (copias, et) => { const r = D.decidir(copias, et); return r.manter === null ? null : copias[r.manter].caminho; };
+const ficam = (copias, et) => { const r = D.decidir(copias, et); return r.fica === null ? null : r.fica.map(i => copias[i].caminho); };
+const L = "6500001_1500001_label.pdf";
 
-igual(fica([copia("CA Lustre"), copia("DPII Lustre")], e1), "DPII Lustre/6500001_1500001_label.pdf", "DPII Lustre fica");
-igual(!!D.decidir([copia("CA Lustre"), copia("DPII Lustre")], e1).aviso, true, "com aviso da lista da encomenda");
-igual(fica([copia("CA Lustre"), copia("Crystal_Brilho")], e2), "CA Lustre/6500001_1500001_label.pdf", "CA Lustre fica (Crystal_Brilho é outro acabamento)");
-igual(fica([copia("CA Lustre"), copia("Crystal_Brilho"), copia("DPII Glossy")], e4), "DPII Glossy/6500001_1500001_label.pdf", "três cópias: fica DPII Glossy");
-igual(fica([copia("Crystal_Brilho"), copia("DPII Glossy")], e4), "DPII Glossy/6500001_1500001_label.pdf", "DPII Glossy fica, não Crystal_Brilho");
-igual(fica([copia("CA Lustre"), copia("DPII Lustre")], e3), null, "Lustre sem família em CA e DPII: por decidir");
-igual(fica([copia("DPII Lustre"), copia("DPII_Seda")], e3), "DPII Lustre/6500001_1500001_label.pdf", "Lustre sem família: só uma pasta Lustre");
-igual(fica([copia("CA Lustre"), copia("DPII Glossy")], e5), null, "nenhuma pasta do papel: por decidir");
-igual(fica([copia("CA Lustre"), copia("DPII Lustre")], null), null, "sem etiqueta: por decidir");
-igual(fica([copia("DPII Lustre", "6500001_1500001_label (1).pdf"), copia("DPII Lustre")], null),
-  "DPII Lustre/6500001_1500001_label.pdf", "mesma pasta: fica o nome original, mesmo sem etiqueta");
-igual(fica([copia("CA Lustre", "6500001_1500001_label - Cópia.pdf"), copia("DPII Lustre", "6500001_1500001_label - Cópia.pdf"),
-  copia("DPII Lustre")], e1), "DPII Lustre/6500001_1500001_label.pdf", "duas cópias na pasta certa: fica a de nome original");
+igual(ficam([copia("CA Lustre"), copia("DPII Lustre")], e1), [`DPII Lustre/${L}`], "DPII Lustre fica");
+igual(ficam([copia("CA Lustre"), copia("Crystal_Brilho")], e2), [`CA Lustre/${L}`], "CA Lustre fica (Crystal_Brilho é outro acabamento)");
+igual(ficam([copia("CA Lustre"), copia("Crystal_Brilho"), copia("DPII Glossy")], e4), [`DPII Glossy/${L}`], "três cópias: fica DPII Glossy");
+igual(ficam([copia("Crystal_Brilho"), copia("DPII Glossy")], e4), [`DPII Glossy/${L}`], "DPII Glossy fica, não Crystal_Brilho");
+igual(ficam([copia("CA Lustre"), copia("DPII Lustre")], e3), null, "Lustre sem família em CA e DPII: por decidir");
+igual(ficam([copia("DPII Lustre"), copia("DPII_Seda")], e3), [`DPII Lustre/${L}`], "Lustre sem família: só uma pasta Lustre");
+igual(ficam([copia("CA Lustre"), copia("DPII Glossy")], e5), null, "nenhuma pasta do papel: por decidir");
+igual(ficam([copia("CA Lustre"), copia("DPII Lustre")], null), null, "sem etiqueta: por decidir");
+igual(ficam([copia("DPII Lustre", "6500001_1500001_label (1).pdf"), copia("DPII Lustre")], null),
+  [`DPII Lustre/${L}`], "mesma pasta: fica o nome original, mesmo sem etiqueta");
+igual(ficam([copia("CA Lustre", "6500001_1500001_label - Cópia.pdf"), copia("DPII Lustre", "6500001_1500001_label - Cópia.pdf"),
+  copia("DPII Lustre")], e1), [`DPII Lustre/${L}`], "duas cópias na pasta certa: fica a de nome original");
+igual(ficam([copia("CA Lustre"), copia("Crystal_Brilho"), copia("DPII Lustre")], e6), [`CA Lustre/${L}`, `DPII Lustre/${L}`],
+  "vários papéis na tabela: fica uma em cada pasta desses papéis, sai a de Crystal_Brilho");
+igual(ficam([copia("CA Lustre"), copia("DPII Lustre")], e6), [`CA Lustre/${L}`, `DPII Lustre/${L}`], "vários papéis: ficam todas");
+igual(ficam([copia("DPII Lustre"), copia("Crystal_Brilho")], e6), [`DPII Lustre/${L}`], "vários papéis, só um com pasta: sai a outra");
 
 // ---------------------------------------------------------------- agrupar
 const f = (dir, nome, hash, tamanho = 10) => ({ ...copia(dir, nome), hash, tamanho });

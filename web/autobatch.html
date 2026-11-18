@@ -308,13 +308,13 @@
 
   #lista-dup { display: grid; gap: 10px; align-content: start; }
   .dup { padding: 12px 14px; display: grid; gap: 8px; }
-  .dup[data-estado="rever"], .dup[data-estado="aviso"] { border-color: var(--aviso); }
+  .dup[data-estado="rever"] { border-color: var(--aviso); }
   .dup[data-estado="nada"] { opacity: .6; }
   .dup-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .dup-topo .nome { font: 13px/20px var(--mono); overflow-wrap: anywhere; min-width: 0; }
   .dup-topo .estado-grupo { margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--sucesso-texto); white-space: nowrap; }
-  .dup[data-estado="rever"] .estado-grupo, .dup[data-estado="aviso"] .estado-grupo { color: var(--aviso); }
-  .dup[data-estado="nada"] .estado-grupo { color: var(--texto-sec); }
+  .dup[data-estado="rever"] .estado-grupo { color: var(--aviso); }
+  .dup[data-estado="nada"] .estado-grupo, .dup[data-estado="certo"] .estado-grupo { color: var(--texto-sec); }
   .copias { display: grid; gap: 4px; }
   .copia {
     display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px;
@@ -1757,9 +1757,10 @@ const Numeracao = (() => {
 <script id="logica-duplicados">
 // Duplicados: PDFs repetidos (conteúdo igual, byte a byte) nas pastas de papel. Sem acesso ao DOM, para
 // poder ser testada à parte (node testes/duplicados.js).
-// A cópia que fica é a que está na pasta do papel que a etiqueta indica no campo "Tipo de Papel" do item.
-// A lista do fundo da etiqueta ("Impressão 10x15 CA Lustre", …) tem todos os itens da encomenda, não só
-// este: não decide nada, só serve para avisar quando nenhum papel dela bate certo com o do item.
+// Só conta a tabela do item (Item | Produtos | Acabamentos | Qtd): o valor de cada "Tipo de Papel:". O resto
+// da etiqueta (a lista do fundo, "Impressão 10x15 CA Lustre", …) não conta, a pedido do utilizador.
+// Uma tabela pode ter vários itens com papéis diferentes: aí o PDF está, de propósito, numa pasta de cada
+// papel, e fica uma cópia em cada uma. Só saem as cópias em pastas de papéis que não estão na tabela.
 const Duplicados = (() => {
   const PASTA_DUPLICADOS = "_Duplicados"; // para onde vão as cópias a mais (dentro da pasta escolhida)
   const NIVEIS = 4;                         // subpastas lidas abaixo da pasta escolhida
@@ -1796,22 +1797,16 @@ const Duplicados = (() => {
   const compativeis = (a, b) => !!a && !!b && a.acabamento === b.acabamento &&
     (!a.familia || !b.familia || a.familia === b.familia);
 
-  // Texto da etiqueta (pdf.js) -> papel do item e papéis da lista da encomenda
-  function lerEtiqueta(texto) {
-    let item = "";
-    const i = texto.search(/Tipo de Papel/i);
-    if (i >= 0) {
-      const resto = texto.slice(i);
-      const fim = resto.search(/Ficheiros de|Observa/i);
-      item = fim >= 0 ? resto.slice(0, fim) : resto.slice(0, 300);
+  // Etiqueta em linhas visuais (pdf.js, palavras com a mesma altura na página numa só linha): na tabela do
+  // item, o valor do "Tipo de Papel:" está na mesma linha, na coluna Acabamentos ("Tipo de Papel:  DPII
+  // Lustre"); a "Plastificação:" está noutra linha e não conta. -> { papeis } (um por papel diferente)
+  function lerEtiqueta(linhas) {
+    const papeis = [];
+    for (const l of String(linhas).split("\n")) {
+      const m = /Tipo de Papel\s*:?(.*)$/i.exec(l);
+      if (m) papeis.push(...papeisNoTexto(m[1]));
     }
-    const papeisItem = unicos(papeisNoTexto(item));
-    const j = texto.search(/Cliente N\S*\s*\d/);
-    const linhas = j >= 0 ? texto.slice(j).split("\n").filter(l => /^\s*Impress/i.test(l)) : [];
-    const papeisEncomenda = unicos(linhas.flatMap(papeisNoTexto));
-    const papel = papeisItem.length === 1 ? papeisItem[0] : null;
-    const conflito = !!papel && papeisEncomenda.length > 0 && !papeisEncomenda.some(p => compativeis(p, papel));
-    return { papel, papeisItem, papeisEncomenda, conflito };
+    return { papeis: unicos(papeis) };
   }
 
   // Ordem dos nomes numa pasta do Windows (maiúsculas e minúsculas iguais)
@@ -1833,29 +1828,25 @@ const Duplicados = (() => {
   }
 
   // copias: [{nome, caminho, dir, pasta}] com o mesmo conteúdo; etiqueta: lerEtiqueta(...) ou null.
-  // -> { manter: índice da cópia que fica (null = por decidir), motivo, aviso }
+  // -> { fica: índices das cópias que ficam (null = por decidir), motivo }
+  // Fica uma cópia por papel da tabela, na pasta desse papel; as outras saem.
   function decidir(copias, etiqueta) {
     if (new Set(copias.map(c => c.dir)).size === 1) {
-      return { manter: preferida(copias), motivo: "Cópias na mesma pasta: fica a de nome original.", aviso: null };
+      return { fica: [preferida(copias)], motivo: "Cópias na mesma pasta: fica a de nome original." };
     }
-    const papel = etiqueta?.papel;
-    if (!papel) {
-      const varios = etiqueta?.papeisItem?.length > 1;
-      return { manter: null, aviso: null, motivo: varios
-        ? `A etiqueta tem mais de um papel (${etiqueta.papeisItem.map(p => p.texto).join(", ")}). Escolhe a cópia que fica.`
-        : "Não encontrei o papel na etiqueta. Escolhe a cópia que fica." };
+    const papeis = etiqueta?.papeis ?? [];
+    if (!papeis.length) return { fica: null, motivo: "Não encontrei o Tipo de Papel na etiqueta. Escolhe a cópia que fica." };
+    const nomes = papeis.map(p => p.texto).join(", ");
+    const fica = new Set();
+    for (const p of papeis) {
+      const certas = copias.map((c, i) => i).filter(i => compativeis(papelDaPasta(copias[i].pasta), p));
+      if (new Set(certas.map(i => copias[i].dir)).size > 1) {
+        return { fica: null, motivo: `Tipo de Papel: ${nomes}. Mais de uma pasta serve para ${p.texto}: escolhe as cópias que ficam.` };
+      }
+      if (certas.length) fica.add(preferida(copias, certas));
     }
-    const certas = copias.map((c, i) => i).filter(i => compativeis(papelDaPasta(copias[i].pasta), papel));
-    if (!certas.length) {
-      return { manter: null, aviso: null, motivo: `Papel na etiqueta: ${papel.texto}. Nenhuma destas pastas é desse papel: escolhe a cópia que fica.` };
-    }
-    if (new Set(certas.map(i => copias[i].dir)).size > 1) {
-      return { manter: null, aviso: null, motivo: `Papel na etiqueta: ${papel.texto}. Mais de uma pasta serve: escolhe a cópia que fica.` };
-    }
-    const aviso = etiqueta.conflito
-      ? `A lista da encomenda, no fundo da etiqueta, diz ${etiqueta.papeisEncomenda.map(p => p.texto).join(", ")}. Confirma o papel antes de limpar.`
-      : null;
-    return { manter: preferida(copias, certas), motivo: `Papel na etiqueta: ${papel.texto}.`, aviso };
+    if (!fica.size) return { fica: null, motivo: `Tipo de Papel: ${nomes}. Nenhuma destas pastas é desse papel: escolhe a cópia que fica.` };
+    return { fica: [...fica].sort((a, b) => a - b), motivo: `Tipo de Papel: ${nomes}.` };
   }
 
   // ficheiros: [{nome, caminho, dir, pasta, tamanho, hash}] (hash só nos que têm tamanho repetido).
@@ -2082,19 +2073,28 @@ const Duplicados = (() => {
     return `fnv:${b.length}:${(h1 >>> 0).toString(16)}${(h2 >>> 0).toString(16)}`;
   }
 
+  // Texto do PDF em linhas visuais (ver Duplicados.lerEtiqueta)
   async function textoDoPdf(ficheiro) {
     if (!window.pdfjsLib) return "";
     let pdf;
     try {
       const dados = new Uint8Array(await ficheiro.arrayBuffer());
       pdf = await pdfjsLib.getDocument({ data: dados, isEvalSupported: false, disableFontFace: true, verbosity: 0 }).promise;
-      let texto = "";
+      const linhas = [];
       for (let n = 1; n <= pdf.numPages; n++) {
         const conteudo = await (await pdf.getPage(n)).getTextContent();
-        for (const item of conteudo.items) texto += item.str + (item.hasEOL ? "\n" : " ");
-        texto += "\n";
+        // Pedaços à mesma altura (2,5 pt) formam uma linha, da esquerda para a direita
+        const pedacos = conteudo.items.filter(it => it.str.trim() && it.transform)
+          .map(it => ({ s: it.str, x: it.transform[4], y: it.transform[5] }))
+          .sort((a, b) => b.y - a.y || a.x - b.x);
+        const daPagina = [];
+        for (const p of pedacos) {
+          const l = daPagina.find(l => Math.abs(l.y - p.y) <= 2.5);
+          if (l) l.pedacos.push(p); else daPagina.push({ y: p.y, pedacos: [p] });
+        }
+        for (const l of daPagina) linhas.push(l.pedacos.sort((a, b) => a.x - b.x).map(p => p.s.trim()).join("  "));
       }
-      return texto;
+      return linhas.join("\n");
     } catch (erro) {
       return "";
     } finally {
@@ -2102,10 +2102,12 @@ const Duplicados = (() => {
     }
   }
 
-  const ORDEM_ESTADO = { rever: 0, aviso: 1, ok: 2, nada: 3 };
+  // rever: por decidir; ok: há cópias a sair; certo: ficam todas (uma por papel); nada: "Não mexer neste"
+  const ORDEM_ESTADO = { rever: 0, ok: 1, certo: 2, nada: 3 };
   function estadoGrupo(g) {
-    if (g.manter === null) return g.ignorado ? "nada" : "rever";
-    return g.aviso ? "aviso" : "ok";
+    if (g.ignorado) return "nada";
+    if (g.fica === null) return "rever";
+    return g.fica.size < g.copias.length ? "ok" : "certo";
   }
 
   async function analisar() {
@@ -2141,7 +2143,9 @@ const Duplicados = (() => {
         barra.atualizar(k / grupos.length, `A ler etiquetas · ${fmt(k + 1)} de ${fmt(grupos.length)} · ${g.copias[0].nome}`);
         const texto = await textoDoPdf(await g.copias[0].obter());
         g.etiqueta = texto.trim() ? D.lerEtiqueta(texto) : null;
-        Object.assign(g, D.decidir(g.copias, g.etiqueta));
+        const d = D.decidir(g.copias, g.etiqueta);
+        g.fica = d.fica && new Set(d.fica);
+        g.motivo = d.motivo;
         g.ignorado = false;
       }
       // Primeiro os que precisam de atenção (a ordem não muda ao escolher, para nada saltar no ecrã)
@@ -2164,8 +2168,9 @@ const Duplicados = (() => {
   }
 
   // --------------------------------------------------------------- Mostrar
-  const aSair = () => analise.grupos.filter(g => g.manter !== null)
-    .flatMap(g => g.copias.filter((_, i) => i !== g.manter).map(c => ({ c, fica: g.copias[g.manter] })));
+  // Cada cópia que sai, com uma das que ficam (para a comparação byte a byte antes de mexer)
+  const aSair = () => analise.grupos.filter(g => g.fica && !g.ignorado)
+    .flatMap(g => g.copias.filter((_, i) => !g.fica.has(i)).map(c => ({ c, fica: g.copias[[...g.fica][0]] })));
 
   function pintarBotao() {
     const b = $("btn-limpar-dup");
@@ -2204,30 +2209,39 @@ const Duplicados = (() => {
     const n = g.copias.length;
     const nomesDiferentes = new Set(g.copias.map(c => c.nome)).size > 1;
     const id = D.idDoNome(g.copias[0].nome);
-    const textoEstado = { ok: `${n - 1} cópia${plural(n - 1, "", "s")} a mais`, aviso: "Confirma o papel", rever: "Por decidir", nada: "Não mexer" }[est];
+    const nSai = g.fica ? n - g.fica.size : 0;
+    const textoEstado = { ok: `${nSai} cópia${plural(nSai, "", "s")} a mais`, certo: "Ficam todas", rever: "Por decidir", nada: "Não mexer" }[est];
     const card = el("section", { className: "card dup" },
       el("div", { className: "dup-topo" },
         id && el("span", { className: "pill", textContent: id }),
         el("span", { className: "nome", textContent: g.copias[0].nome }),
         el("span", { className: "estado-grupo", textContent: textoEstado })),
       el("div", { className: "copias" }, ...g.copias.map((c, i) => {
-        const fica = g.manter === i, sai = g.manter !== null && !fica;
+        const decidido = g.fica && !g.ignorado;
+        const fica = decidido && g.fica.has(i), sai = decidido && !fica;
         const b = el("button", { type: "button", className: "copia", disabled: ocupado,
-          title: fica ? "Esta cópia fica" : "Clica para ficar com esta cópia" },
+          title: fica ? "Fica (clica para sair)" : "Clica para ficar com esta cópia" },
           el("span", { className: "onde" },
             el("b", { textContent: c.dir || origem.nome }),
             nomesDiferentes && el("small", { textContent: c.nome })),
           el("em", { textContent: fica ? "Fica" : sai ? (acao === "mover" ? "Sai" : "Apaga-se") : "—" }));
         b.dataset.acao = fica ? "fica" : sai ? "sai" : "nada";
         b.setAttribute("aria-pressed", String(fica));
-        b.addEventListener("click", () => { if (ocupado) return; g.manter = i; g.ignorado = false; trocar(); });
+        // Por decidir: a cópia clicada fica e as outras saem. Decidido: clicar troca fica/sai (fica sempre uma)
+        b.addEventListener("click", () => {
+          if (ocupado) return;
+          if (!g.fica || g.ignorado) g.fica = new Set([i]);
+          else if (!g.fica.has(i)) g.fica.add(i);
+          else if (g.fica.size > 1) g.fica.delete(i);
+          g.ignorado = false;
+          trocar();
+        });
         return b;
       })),
       el("div", { className: `dup-nota${est === "rever" ? " aviso" : ""}`, textContent: g.motivo }),
-      g.aviso && g.manter !== null && el("div", { className: "dup-nota aviso", textContent: g.aviso }),
-      g.manter !== null && el("button", { className: "link", type: "button", textContent: "Não mexer neste" }));
+      est === "ok" && el("button", { className: "link", type: "button", textContent: "Não mexer neste" }));
     card.dataset.estado = est;
-    card.querySelector(".link")?.addEventListener("click", () => { if (ocupado) return; g.manter = null; g.ignorado = true; trocar(); });
+    card.querySelector(".link")?.addEventListener("click", () => { if (ocupado) return; g.ignorado = true; trocar(); });
     function trocar() { card.replaceWith(cardGrupo(g)); pintarResumo(); }
     return card;
   }
@@ -2297,13 +2311,11 @@ const Duplicados = (() => {
     const acoes = aSair();
     const n = acoes.length;
     if (!n) return;
-    const avisos = analise.grupos.filter(g => g.manter !== null && g.aviso).length;
     const porDecidir = analise.grupos.filter(g => estadoGrupo(g) === "rever").length;
     const partes = [acao === "mover"
       ? `Vão sair ${fmt(n)} PDF${plural(n, "", "s")}, para a pasta ${D.PASTA_DUPLICADOS} dentro de "${origem.nome}".`
       : `Vão ser apagados de vez ${fmt(n)} PDF${plural(n, "", "s")} (não vão para a Reciclagem).`,
     "Antes de cada um, a app confirma que é igual, byte a byte, à cópia que fica."];
-    if (avisos) partes.push(`Atenção: em ${avisos} PDF${plural(avisos, "", "s")} a lista da encomenda indica outro papel (ver "Confirma o papel").`);
     if (porDecidir) partes.push(`${porDecidir} PDF${plural(porDecidir, "", "s")} por decidir ficam como estão.`);
     if (!(await perguntar(acao === "mover" ? "Mover as cópias a mais?" : "Apagar as cópias a mais?",
       partes.join("\n\n"), acao === "mover" ? `Mover ${fmt(n)}` : `Apagar ${fmt(n)}`))) return;
