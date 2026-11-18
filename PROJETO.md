@@ -4,7 +4,7 @@ Agrupa os PDFs de etiquetas em batches até ao limite de quantidade.
 
 - **App:** https://nhmac.github.io/Proc-Batches/ (Chrome, Edge ou Brave; pode ser instalada como app)
 - **Repositório:** https://github.com/nhmac/Proc-Batches (código-fonte no `main`; o site é gerado e publicado pelo GitHub Actions)
-- **Versão atual:** web 1.3.7 (modo Express ligado)
+- **Versão atual:** web 1.4 (modo Duplicados novo)
 
 Os PDFs são lidos no browser e não são enviados para lado nenhum.
 
@@ -24,6 +24,9 @@ PDF não tem o número da quantidade na etiqueta (antes entrava no batch como 0,
 a 1.3.3 é bloqueado também quando algum PDF não começa pelo número da encomenda (antes ficava de
 fora dos batches, sem aviso). O modo **Numeração** (próximo número de batch, a partir das pastas BATCHES)
 já está no código mas desligado ("em desenvolvimento", `NUMERACAO_ATIVA`).
+
+O modo **Duplicados** (desde a 1.4) encontra PDFs repetidos nas pastas de papel e tira as cópias a mais.
+Ver "Modo Duplicados", abaixo.
 
 ## Atualizar a app
 
@@ -47,6 +50,7 @@ Só usa a biblioteca padrão do Python e o git.
 | `PDFs/` | PDFs de exemplo para testes |
 | `main.py`, `processamento_ui.py` | Versão Python (referência da lógica): tem os dois modos do Agrupar e as mesmas regras desde a 1.3.1; não tem a Numeração |
 | `debug/` | Scripts para descobrir as coordenadas do número na etiqueta |
+| `testes/` | `node testes/duplicados.js`: testes da lógica do modo Duplicados (sem PDFs reais) |
 
 ## Versão Python e scripts de debug
 
@@ -79,3 +83,38 @@ tabela (4 900 000 / 9 900 000), a página mostra "Atenção: numeração perto d
 Casos reais de teste em `PDFs/novos testes/` (só nos PCs: os PDFs não vão para o git) (um PDF com várias encomendas de cada tipo, 2026-10-28).
 Para o modo Fotoprix + Dreambooks dividem-se por página em `<id da folha>_label.pdf` (como na pasta das
 etiquetas). O modo Express lê o PDF inteiro.
+
+## Modo Duplicados
+
+Encontra PDFs repetidos numa pasta com pastas de papel (ex.: a "00", com `CA Lustre`, `DPII Lustre`,
+`DPII Glossy`, `DPII_Seda`, `Crystal_Brilho`) e tira as cópias a mais. Lógica no
+`<script id="logica-duplicados">` (objeto `Duplicados`, sem DOM), interface no `<script id="duplicados">`.
+A versão Python não tem este modo.
+
+- **Repetido** = conteúdo igual byte a byte, com qualquer nome. Só se leem por inteiro os PDFs com
+  tamanho repetido (SHA-256). PDFs com o mesmo nome e conteúdo diferente aparecem à parte e não se mexe neles.
+- **Que cópias ficam:** só conta a tabela do item (Item | Produtos | Acabamentos | Qtd): o valor de
+  cada "Tipo de Papel:" (`lerEtiqueta`). A lista do fundo da etiqueta ("Impressão 10x15 CA Lustre", …) e a
+  Plastificação não contam (indicação do utilizador, 2026-11-18). O texto lê-se em linhas visuais (pdf.js,
+  pedaços à mesma altura), para o valor sair na mesma linha que o rótulo. Fica uma cópia na pasta de cada
+  papel da tabela: uma tabela com vários itens de papéis diferentes tem o PDF, de propósito, numa pasta de
+  cada papel, e essas cópias ficam todas ("Ficam todas"). Saem as cópias em pastas de outros papéis.
+  O papel da pasta tira-se do nome (`papelDaPasta`): família `CA`/`Crystal` ou `DPII` e acabamento Lustre,
+  Brilho/Glossy, Seda/Silk ou Mate. "Lustre" sem família (Schools) serve para as duas famílias. Cópias na
+  mesma pasta: fica a de nome original (`<encomenda>_<id>_label.pdf`).
+- **Por decidir** (o operador clica nas cópias que ficam): sem Tipo de Papel na etiqueta, nenhuma pasta
+  desses papéis, ou mais de uma pasta para o mesmo papel. Clicar numa cópia troca entre fica e sai (fica
+  sempre pelo menos uma). Também se pode pôr qualquer PDF em "Não mexer neste".
+- **Limpar:** "Mover para _Duplicados" (por omissão; cria `_Duplicados` dentro da pasta escolhida, com as
+  mesmas subpastas, e confirma a cópia antes de apagar o original) ou "Apagar" (de vez). Antes de cada
+  ficheiro confirma que é igual, byte a byte, à cópia que fica. No fim lê a pasta de novo.
+- A pasta escolhe-se só para leitura; a autorização para alterar pede-se ao carregar em Limpar. Só funciona
+  no Chrome/Edge com "Escolher pasta…" (ou ao arrastar a pasta). Sem isso, a análise faz-se mas o Limpar
+  fica desligado. A pasta `_Duplicados` é ignorada nas análises seguintes.
+
+Testado (2026-11-18) com uma pasta "00" real de 232 PDFs: o Tipo de Papel lê-se nas 232 etiquetas (um
+papel em cada); 25 repetidos, 27 cópias a mais (21 em `CA Lustre`, 6 em `Crystal_Brilho`). O resultado foi
+igual à limpeza feita à mão. Com vários papéis na tabela, testado com três etiquetas reais (6487018_1429109,
+6487814_1430613 e 6488698_1432278: itens CA Lustre e DPII Lustre, de 2 e 3 páginas): ficam as cópias em
+CA Lustre e DPII Lustre, saem as de outras pastas. O valor do "Tipo de Papel" acaba no " - " seguinte, porque
+as linhas "Ficheiros de: … - Tipo de Papel: … - Plastificação: …" das páginas seguintes o repetem.
