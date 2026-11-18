@@ -114,4 +114,7 @@ A versão Python não tem este modo.
 
 Testado (2026-11-18) com uma pasta "00" real de 232 PDFs: o Tipo de Papel lê-se nas 232 etiquetas (um
 papel em cada); 25 repetidos, 27 cópias a mais (21 em `CA Lustre`, 6 em `Crystal_Brilho`). O resultado foi
-igual à limpeza feita à mão. Ainda sem exemplo real de uma tabela com vários papéis (só nos testes).
+igual à limpeza feita à mão. Com vários papéis na tabela, testado com três etiquetas reais (6487018_1429109,
+6487814_1430613 e 6488698_1432278: itens CA Lustre e DPII Lustre, de 2 e 3 páginas): ficam as cópias em
+CA Lustre e DPII Lustre, saem as de outras pastas. O valor do "Tipo de Papel" acaba no " - " seguinte, porque
+as linhas "Ficheiros de: … - Tipo de Papel: … - Plastificação: …" das páginas seguintes o repetem.

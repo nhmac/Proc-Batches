@@ -66,6 +66,13 @@ igual(papeis(D.lerEtiqueta(etiqueta(["DPII Lustre", "Brilho"]))), ["DPII Lustre"
 const e6 = D.lerEtiqueta(etiqueta(["DPII Lustre", "Sem Plastificação"], ["CA Lustre", "Sem Plastificação"], ["DPII Lustre"]));
 igual(papeis(e6), ["DPII Lustre", "CA Lustre"], "tabela com vários itens: dois papéis diferentes");
 igual(papeis(D.lerEtiqueta("texto sem campo de papel")), [], "etiqueta sem Tipo de Papel");
+// Páginas seguintes: "Ficheiros de: … - Tipo de Papel: … - Plastificação: …" (formato real, exemplos de 2026-11-18)
+igual(papeis(D.lerEtiqueta([
+  "Tipo de Papel:  CA Lustre", "Correção de Cor:  Sim", "Tipo de Papel:  DPII Lustre", "Plastificação:  Sem Plastificação",
+  "Ficheiros de:  6487018_2748041  - 10x15 - Tipo de Papel: CA Lustre - Correção de Cor: NONE",
+  "Ficheiros de:  6487018_2748043  - 20x30 - Tipo de Papel: DPII Lustre - Plastificação: Brilho - Correção de Cor:",
+  "Ficheiros de:  6487018_2748044  - 20x30 - Tipo de Papel: DPII Lustre Plastificação: Mate",
+].join("\n"))), ["CA Lustre", "DPII Lustre"], "linhas Ficheiros de: a plastificação Brilho/Mate não conta");
 
 // ---------------------------------------------------------------- que cópias ficam
 const copia = (dir, nome = "6500001_1500001_label.pdf") =>

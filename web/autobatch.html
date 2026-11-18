@@ -1799,12 +1799,15 @@ const Duplicados = (() => {
 
   // Etiqueta em linhas visuais (pdf.js, palavras com a mesma altura na página numa só linha): na tabela do
   // item, o valor do "Tipo de Papel:" está na mesma linha, na coluna Acabamentos ("Tipo de Papel:  DPII
-  // Lustre"); a "Plastificação:" está noutra linha e não conta. -> { papeis } (um por papel diferente)
+  // Lustre"); a "Plastificação:" e a "Correção de Cor:" estão noutras linhas e não contam. Nas páginas
+  // seguintes, o "Ficheiros de: … - Tipo de Papel: CA Lustre - Plastificação: …" repete o papel: o valor
+  // acaba no " - " seguinte (ou no rótulo seguinte), para a plastificação nunca contar como papel.
+  // -> { papeis } (um por papel diferente)
   function lerEtiqueta(linhas) {
     const papeis = [];
     for (const l of String(linhas).split("\n")) {
       const m = /Tipo de Papel\s*:?(.*)$/i.exec(l);
-      if (m) papeis.push(...papeisNoTexto(m[1]));
+      if (m) papeis.push(...papeisNoTexto(m[1].split(/\s+-\s+/)[0].replace(/[^\s:]+\s*:.*$/, "")));
     }
     return { papeis: unicos(papeis) };
   }
