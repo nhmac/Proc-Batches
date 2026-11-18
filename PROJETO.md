@@ -4,7 +4,7 @@ Agrupa os PDFs de etiquetas em batches até ao limite de quantidade.
 
 - **App:** https://nhmac.github.io/Proc-Batches/ (Chrome, Edge ou Brave; pode ser instalada como app)
 - **Repositório:** https://github.com/nhmac/Proc-Batches (código-fonte no `main`; o site é gerado e publicado pelo GitHub Actions)
-- **Versão atual:** web 1.4 (modo Duplicados novo)
+- **Versão atual:** web 1.4.1 (modo Duplicados; opção "Apagar" desligada)
 
 Os PDFs são lidos no browser e não são enviados para lado nenhum.
 
@@ -105,8 +105,9 @@ A versão Python não tem este modo.
 - **Por decidir** (o operador clica nas cópias que ficam): sem Tipo de Papel na etiqueta, nenhuma pasta
   desses papéis, ou mais de uma pasta para o mesmo papel. Clicar numa cópia troca entre fica e sai (fica
   sempre pelo menos uma). Também se pode pôr qualquer PDF em "Não mexer neste".
-- **Limpar:** "Mover para _Duplicados" (por omissão; cria `_Duplicados` dentro da pasta escolhida, com as
-  mesmas subpastas, e confirma a cópia antes de apagar o original) ou "Apagar" (de vez). Antes de cada
+- **Limpar:** "Mover para _Duplicados" (cria `_Duplicados` dentro da pasta escolhida, com as mesmas
+  subpastas, e confirma a cópia antes de apagar o original). A opção "Apagar" (de vez) está no código mas
+  desligada desde a 1.4.1, a pedido do utilizador (`data-desligado` no botão, como o Express na 1.3.4). Antes de cada
   ficheiro confirma que é igual, byte a byte, à cópia que fica. No fim lê a pasta de novo.
 - A pasta escolhe-se só para leitura; a autorização para alterar pede-se ao carregar em Limpar. Só funciona
   no Chrome/Edge com "Escolher pasta…" (ou ao arrastar a pasta). Sem isso, a análise faz-se mas o Limpar

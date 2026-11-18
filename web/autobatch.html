@@ -407,7 +407,7 @@
 
     <div class="rodape">
       <button class="btn-principal" id="btn-processar" type="button">Processar PDFs</button>
-      <div class="versao">Versão web 1.4</div>
+      <div class="versao">Versão web 1.4.1</div>
     </div>
     </div>
 
@@ -435,7 +435,7 @@
 
       <div class="rodape">
         <button class="btn-principal" id="btn-atualizar" type="button">Atualizar</button>
-        <div class="versao">Versão web 1.4 · F5 atualiza</div>
+        <div class="versao">Versão web 1.4.1 · F5 atualiza</div>
       </div>
     </div>
 
@@ -456,7 +456,9 @@
       <div class="secao" id="secao-acao-dup">Cópias a mais</div>
       <div class="modos" id="modos-dup" role="radiogroup" aria-labelledby="secao-acao-dup">
         <button type="button" role="radio" data-acao="mover" aria-checked="true">Mover para _Duplicados</button>
-        <button type="button" role="radio" data-acao="apagar" aria-checked="false">Apagar</button>
+        <!-- "Apagar" desligado na 1.4.1 (pedido do utilizador). Para voltar a ligar: tirar o disabled, o
+             data-desligado e o title. -->
+        <button type="button" role="radio" data-acao="apagar" aria-checked="false" disabled data-desligado title="Desligado">Apagar</button>
       </div>
       <div class="dica" id="dica-acao-dup"></div>
 
@@ -467,7 +469,7 @@
 
       <div class="rodape">
         <button class="btn-principal" id="btn-limpar-dup" type="button" disabled>Limpar duplicados</button>
-        <div class="versao">Versão web 1.4</div>
+        <div class="versao">Versão web 1.4.1</div>
       </div>
     </div>
   </aside>
@@ -1948,7 +1950,7 @@ const Duplicados = (() => {
     pintarBotao();
   }
   for (const b of $("modos-dup").children) {
-    b.addEventListener("click", () => { if (!ocupado) { acao = b.dataset.acao; pintarAcao(); } });
+    b.addEventListener("click", () => { if (!ocupado && !("desligado" in b.dataset)) { acao = b.dataset.acao; pintarAcao(); } });
   }
 
   // --------------------------------------------------------------- Ler a pasta
@@ -2367,7 +2369,8 @@ const Duplicados = (() => {
     ocupado = sim;
     $("btn-pasta-dup").disabled = sim;
     $("btn-reanalisar-dup").disabled = sim;
-    for (const b of $("modos-dup").children) b.disabled = sim;
+    // Um botão desligado (data-desligado) continua desativado depois de processar
+    for (const b of $("modos-dup").children) b.disabled = sim || "desligado" in b.dataset;
     for (const b of document.querySelectorAll("#lista-dup .copia, #lista-dup .dup .link")) b.disabled = sim;
     pintarBotao();
   }
